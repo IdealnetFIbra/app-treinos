@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/custom/navbar";
-import { Play, Clock, TrendingUp, Heart, Share2, ChevronLeft, Loader2 } from "lucide-react";
+import { Play, Clock, TrendingUp, Heart, Share2, ChevronLeft, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getVideoById, incrementVideoViews } from "@/lib/api/videos";
 import { Video } from "@/lib/database.types";
@@ -16,6 +16,7 @@ export default function ExerciseDetailPage() {
   const [exercise, setExercise] = useState<Video | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isWatching, setIsWatching] = useState(false);
 
   useEffect(() => {
     async function loadExercise() {
@@ -42,6 +43,14 @@ export default function ExerciseDetailPage() {
       loadExercise();
     }
   }, [exerciseId]);
+
+  const handleWatchVideo = () => {
+    setIsWatching(true);
+  };
+
+  const handleCloseVideo = () => {
+    setIsWatching(false);
+  };
 
   // Loading state
   if (loading) {
@@ -76,6 +85,36 @@ export default function ExerciseDetailPage() {
     <div className="min-h-screen bg-[#000000]">
       <Navbar />
       
+      {/* Modal de Vídeo em Tela Cheia */}
+      {isWatching && (
+        <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+          <button
+            onClick={handleCloseVideo}
+            className="absolute top-4 right-4 z-50 text-white hover:text-gray-300 transition-colors"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          
+          <div className="w-full h-full flex items-center justify-center p-4">
+            {exercise.video_url ? (
+              <video
+                src={exercise.video_url}
+                controls
+                autoPlay
+                className="max-w-full max-h-full"
+              >
+                Seu navegador não suporta o elemento de vídeo.
+              </video>
+            ) : (
+              <div className="text-center">
+                <p className="text-white text-xl mb-4">Vídeo em breve!</p>
+                <p className="text-white/60">Este exercício ainda não possui vídeo disponível.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Hero Section com Thumbnail */}
       <div className="relative w-full h-[50vh] md:h-[60vh] lg:h-[70vh]">
         <img
@@ -104,7 +143,7 @@ export default function ExerciseDetailPage() {
             <div className="flex flex-wrap items-center gap-4 mb-6 text-white/90">
               <span className="flex items-center gap-2">
                 <Clock className="w-5 h-5" />
-                {exercise.duration}
+                {exercise.duration} min
               </span>
               <span className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5" />
@@ -114,7 +153,10 @@ export default function ExerciseDetailPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button className="bg-white text-black hover:bg-white/90 font-semibold px-8 py-6 text-lg">
+              <Button 
+                onClick={handleWatchVideo}
+                className="bg-white text-black hover:bg-white/90 font-semibold px-8 py-6 text-lg"
+              >
                 <Play className="w-5 h-5 mr-2" />
                 Assistir Agora
               </Button>

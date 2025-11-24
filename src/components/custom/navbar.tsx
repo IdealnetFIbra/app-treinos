@@ -2,9 +2,11 @@
 
 import { Search, Bell, User } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const router = useRouter();
 
   if (typeof window !== "undefined") {
     window.addEventListener("scroll", () => {
@@ -21,16 +23,34 @@ export function Navbar() {
       <div className="flex items-center justify-between px-4 md:px-12 py-4">
         {/* Logo */}
         <div className="flex items-center gap-8">
-          <h1 className="text-[#E50914] text-2xl md:text-3xl font-bold">
+          <h1 
+            onClick={() => router.push("/")}
+            className="text-[#E50914] text-2xl md:text-3xl font-bold cursor-pointer hover:opacity-80 transition"
+          >
             FIT<span className="text-white">STREAM</span>
           </h1>
 
           {/* Menu Desktop */}
           <div className="hidden md:flex items-center gap-6 text-sm">
-            <button className="text-white hover:text-gray-300 transition">Início</button>
-            <button className="text-white hover:text-gray-300 transition">Treinos</button>
+            <button 
+              onClick={() => router.push("/")}
+              className="text-white hover:text-gray-300 transition"
+            >
+              Início
+            </button>
+            <button 
+              onClick={() => router.push("/treinos")}
+              className="text-white hover:text-gray-300 transition"
+            >
+              Treinos
+            </button>
             <button className="text-white hover:text-gray-300 transition">Lives</button>
-            <button className="text-white hover:text-gray-300 transition">Programas</button>
+            <button 
+              onClick={() => router.push("/programas")}
+              className="text-white hover:text-gray-300 transition"
+            >
+              Programas
+            </button>
             <button className="text-white hover:text-gray-300 transition">Comunidade</button>
           </div>
         </div>
