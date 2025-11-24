@@ -3,14 +3,7 @@
 import { Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import { useRouter } from "next/navigation";
-
-interface Video {
-  id: number;
-  title: string;
-  duration: string;
-  level: string;
-  thumbnail: string;
-}
+import { Video } from "@/lib/database.types";
 
 interface VideoCarouselProps {
   title: string;
@@ -28,7 +21,7 @@ export function VideoCarousel({ title, videos }: VideoCarouselProps) {
     }
   };
 
-  const handleVideoClick = (videoId: number) => {
+  const handleVideoClick = (videoId: string) => {
     router.push(`/exercicio/${videoId}`);
   };
 
@@ -64,7 +57,7 @@ export function VideoCarousel({ title, videos }: VideoCarouselProps) {
               {/* Thumbnail */}
               <div className="relative aspect-video rounded-md overflow-hidden bg-[#121212] mb-2">
                 <img
-                  src={video.thumbnail}
+                  src={video.thumbnail_url || "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=225&fit=crop"}
                   alt={video.title}
                   className="w-full h-full object-cover group-hover/card:scale-110 transition-transform duration-300"
                 />
@@ -77,16 +70,18 @@ export function VideoCarousel({ title, videos }: VideoCarouselProps) {
                 </div>
 
                 {/* Duration Badge */}
-                <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs text-white">
-                  {video.duration}
-                </div>
+                {video.duration && (
+                  <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs text-white">
+                    {video.duration} min
+                  </div>
+                )}
               </div>
 
               {/* Info */}
               <h3 className="text-white font-semibold text-sm mb-1 line-clamp-1">
                 {video.title}
               </h3>
-              <p className="text-gray-400 text-xs">{video.level}</p>
+              <p className="text-gray-400 text-xs">{video.level || "Todos os níveis"}</p>
             </div>
           ))}
         </div>
