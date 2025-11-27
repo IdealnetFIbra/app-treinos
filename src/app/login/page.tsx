@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Mail, Lock, Chrome, Apple } from "lucide-react";
+import { Mail, Lock, Chrome, Apple, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const { isAuthenticated, login, loginWithGoogle, loginWithApple } = useAuth();
   const { theme } = useTheme();
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     console.log("🔍 [Login] Verificando autenticação. isAuthenticated:", isAuthenticated);
@@ -21,22 +23,56 @@ export default function LoginPage() {
 
   const handleEmailLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError("");
+    setIsLoading(true);
+    
     console.log("📧 [Login] Iniciando login com e-mail");
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     console.log("📧 [Login] Dados do formulário:", { email, password: "***" });
-    await login(email, password);
+    
+    try {
+      await login(email, password);
+      console.log("✅ [Login] Login realizado com sucesso");
+    } catch (err: any) {
+      console.error("❌ [Login] Erro no login:", err);
+      
+      // Mensagens de erro amigáveis
+      if (err.message?.includes("Invalid login credentials")) {
+        setError("E-mail ou senha incorretos. Verifique seus dados e tente novamente.");
+      } else if (err.message?.includes("Email not confirmed")) {
+        setError("Por favor, confirme seu e-mail antes de fazer login. Verifique sua caixa de entrada.");
+      } else if (err.message?.includes("User not found")) {
+        setError("Usuário não encontrado. Verifique o e-mail ou crie uma conta.");
+      } else {
+        setError("Erro ao fazer login. Tente novamente.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
     console.log("🔐 [Login] Botão Google clicado");
-    await loginWithGoogle();
+    setError("");
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      console.error("❌ [Login] Erro no login com Google:", err);
+      setError("Erro ao fazer login com Google. Tente novamente.");
+    }
   };
 
   const handleAppleLogin = async () => {
     console.log("🍎 [Login] Botão Apple clicado");
-    await loginWithApple();
+    setError("");
+    try {
+      await loginWithApple();
+    } catch (err: any) {
+      console.error("❌ [Login] Erro no login com Apple:", err);
+      setError("Erro ao fazer login com Apple. Tente novamente.");
+    }
   };
 
   return (
@@ -71,25 +107,35 @@ export default function LoginPage() {
             Faça login ou crie seu cadastro para usar o app.
           </p>
 
+          {/* Mensagem de Erro */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           {/* Botões de Login Social */}
           <div className="space-y-3 mb-6">
             <button 
               onClick={handleGoogleLogin}
+              disabled={isLoading}
               className={`w-full flex items-center justify-center gap-3 py-3 rounded-lg font-semibold transition ${
                 theme === "light"
                   ? "bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
                   : "bg-[#0B0B0B] border-2 border-gray-700 text-white hover:bg-black"
-              }`}>
+              } disabled:opacity-50 disabled:cursor-not-allowed`}>
               <Chrome className="w-5 h-5" />
               Entrar com Google
             </button>
             <button 
               onClick={handleAppleLogin}
+              disabled={isLoading}
               className={`w-full flex items-center justify-center gap-3 py-3 rounded-lg font-semibold transition ${
                 theme === "light"
                   ? "bg-black text-white hover:bg-gray-800"
                   : "bg-white text-black hover:bg-gray-200"
-              }`}>
+              } disabled:opacity-50 disabled:cursor-not-allowed`}>
               <Apple className="w-5 h-5" />
               Entrar com Apple
             </button>
@@ -127,12 +173,13 @@ export default function LoginPage() {
                   type="email"
                   name="email"
                   required
+                  disabled={isLoading}
                   placeholder="seu@email.com"
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 focus:ring-red-600 transition ${
                     theme === "light"
                       ? "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
                       : "bg-[#0B0B0B] border-gray-700 text-white placeholder-gray-500"
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 />
               </div>
             </div>
@@ -151,27 +198,32 @@ export default function LoginPage() {
                   type="password"
                   name="password"
                   required
+                  disabled={isLoading}
                   placeholder="••••••••"
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 focus:ring-red-600 transition ${
                     theme === "light"
                       ? "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
                       : "bg-[#0B0B0B] border-gray-700 text-white placeholder-gray-500"
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-[#E50914] text-white py-3 rounded-lg font-semibold hover:bg-[#C4070F] transition"
+              disabled={isLoading}
+              className="w-full bg-[#E50914] text-white py-3 rounded-lg font-semibold hover:bg-[#C4070F] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Entrar
+              {isLoading ? "Entrando..." : "Entrar"}
             </button>
           </form>
 
           {/* Link Esqueci Senha */}
           <div className="text-center mt-4">
-            <button className="text-red-600 text-sm font-medium hover:underline">
+            <button 
+              className="text-red-600 text-sm font-medium hover:underline"
+              disabled={isLoading}
+            >
               Esqueci minha senha
             </button>
           </div>
@@ -187,7 +239,8 @@ export default function LoginPage() {
                   console.log("🔗 [Login] Redirecionando para /cadastro");
                   router.push("/cadastro");
                 }}
-                className="text-red-600 font-semibold hover:underline"
+                disabled={isLoading}
+                className="text-red-600 font-semibold hover:underline disabled:opacity-50"
               >
                 Criar cadastro
               </button>

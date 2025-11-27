@@ -59,11 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         console.log("✅ [AuthContext] Usuário autenticado encontrado:", {
           id: session.user.id,
-          email: session.user.email
+          email: session.user.email,
+          emailConfirmed: session.user.email_confirmed_at ? "Sim" : "Não"
         });
         
-        // Buscar dados completos do usuário na tabela profiles
-        fetchUserProfile(session.user.id);
+        // Carregar dados do usuário diretamente do Auth
+        loadUserFromAuth(session.user);
       } else {
         console.log("❌ [AuthContext] Nenhuma sessão ativa encontrada");
         setIsLoading(false);
@@ -77,9 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         console.log("✅ [AuthContext] Novo usuário autenticado:", {
           id: session.user.id,
-          email: session.user.email
+          email: session.user.email,
+          emailConfirmed: session.user.email_confirmed_at ? "Sim" : "Não"
         });
-        fetchUserProfile(session.user.id);
+        loadUserFromAuth(session.user);
       } else {
         console.log("❌ [AuthContext] Usuário desconectado");
         setUser(null);
@@ -109,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (!isPublicRoute && currentPath !== '/') {
         console.log("🚫 [AuthContext] Rota protegida sem autenticação - Redirecionando para /login");
-        router.push('/login');
+        router.replace('/login');
       }
     }
 
@@ -118,62 +120,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Se tentar acessar /login ou /cadastro, redirecionar para /comunidade
       if (currentPath === '/login' || currentPath === '/cadastro') {
         console.log("🔄 [AuthContext] Usuário logado tentando acessar rota pública - Redirecionando para /comunidade");
-        router.push('/comunidade');
+        router.replace('/comunidade');
       }
     }
   }, [isAuthenticated, isLoading, pathname, router]);
 
-  const fetchUserProfile = async (userId: string) => {
-    console.log("🔍 [AuthContext] Buscando perfil do usuário na tabela profiles:", userId);
+  const loadUserFromAuth = (authUser: any) => {
+    console.log("📥 [AuthContext] Carregando dados do usuário do Supabase Auth");
+    console.log("📊 [AuthContext] user_metadata:", authUser.user_metadata);
     
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId);
+    const userProfile: User = {
+      id: authUser.id,
+      name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || "Usuário",
+      email: authUser.email || "",
+      phone: authUser.user_metadata?.phone || "",
+      unit: authUser.user_metadata?.unit || "",
+      avatar: authUser.user_metadata?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+      themeMode: authUser.user_metadata?.themeMode || "light",
+    };
 
-      console.log("📊 [Supabase Query] SELECT FROM profiles WHERE id =", userId);
-      
-      if (error) {
-        console.error("❌ [AuthContext] Erro ao buscar perfil:", error.message);
-        setIsLoading(false);
-        return;
-      }
+    console.log("✅ [AuthContext] Usuário carregado:", {
+      id: userProfile.id,
+      name: userProfile.name,
+      email: userProfile.email,
+      unit: userProfile.unit
+    });
 
-      // Verificar se retornou dados
-      if (data && data.length > 0) {
-        const profileData = data[0]; // Pegar o primeiro registro
-        
-        console.log("✅ [AuthContext] Perfil encontrado:", {
-          id: profileData.id,
-          nome: profileData.nome,
-          email: profileData.email,
-          unidade: profileData.unidade
-        });
-        
-        const userProfile: User = {
-          id: profileData.id,
-          name: profileData.nome || "",
-          email: profileData.email || "",
-          phone: profileData.celular || "",
-          unit: profileData.unidade || "",
-          avatar: profileData.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-          themeMode: profileData.theme_mode || "light",
-        };
-
-        setUser(userProfile);
-        setIsAuthenticated(true);
-        setIsLoading(false);
-        document.cookie = "fitstream_auth=true; path=/; max-age=31536000";
-        console.log("🍪 [AuthContext] Cookie de autenticação definido");
-      } else {
-        console.log("⚠️ [AuthContext] Nenhum perfil encontrado para o usuário:", userId);
-        setIsLoading(false);
-      }
-    } catch (err) {
-      console.error("❌ [AuthContext] Erro inesperado ao buscar perfil:", err);
-      setIsLoading(false);
-    }
+    setUser(userProfile);
+    setIsAuthenticated(true);
+    setIsLoading(false);
+    document.cookie = "fitstream_auth=true; path=/; max-age=31536000";
+    console.log("🍪 [AuthContext] Cookie de autenticação definido");
   };
 
   const login = async (email: string, password: string) => {
@@ -196,12 +173,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user) {
         console.log("✅ [AuthContext] Login bem-sucedido:", {
           id: data.user.id,
-          email: data.user.email
+          email: data.user.email,
+          emailConfirmed: data.user.email_confirmed_at ? "Sim" : "Não"
         });
         
-        await fetchUserProfile(data.user.id);
+        // Verificar se o email foi confirmado
+        if (!data.user.email_confirmed_at) {
+          console.warn("⚠️ [AuthContext] E-mail não confirmado");
+          throw new Error("Email not confirmed");
+        }
+        
+        loadUserFromAuth(data.user);
         console.log("🚀 [AuthContext] Redirecionando para /comunidade");
-        router.push("/comunidade");
+        router.replace("/comunidade");
       }
     } catch (err) {
       console.error("❌ [AuthContext] Erro inesperado no login:", err);
@@ -216,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/comunidade`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -241,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: `${window.location.origin}/comunidade`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -269,8 +253,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     try {
-      // Passo 1: Criar usuário no Supabase Auth
-      console.log("🔐 [AuthContext] Passo 1: Criando usuário no Supabase Auth");
+      // Criar usuário no Supabase Auth com user_metadata
+      console.log("🔐 [AuthContext] Criando usuário no Supabase Auth");
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -306,37 +290,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log("✅ [AuthContext] Usuário criado no Supabase Auth:", {
         id: authData.user.id,
-        email: authData.user.email
+        email: authData.user.email,
+        metadata: authData.user.user_metadata
       });
 
-      // Passo 2: Tentar criar registro na tabela profiles
-      // Usar apenas os campos essenciais que sabemos que existem
-      console.log("💾 [AuthContext] Passo 2: Tentando criar registro na tabela profiles");
-      
-      try {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([{
-            id: authData.user.id,
-            nome: data.name,
-            email: data.email,
-            celular: data.phone,
-            unidade: data.unit
-          }]);
-
-        if (profileError) {
-          console.error("⚠️ [AuthContext] Erro ao criar perfil (não crítico):", profileError.message);
-          // NÃO retornar erro - o usuário foi criado no Auth, isso é o mais importante
-          console.log("✅ [AuthContext] Continuando - usuário criado no Auth com sucesso");
-        } else {
-          console.log("✅ [AuthContext] Perfil criado com sucesso na tabela profiles");
-        }
-      } catch (profileErr) {
-        console.error("⚠️ [AuthContext] Exceção ao criar perfil (não crítico):", profileErr);
-        // Continuar mesmo com erro no perfil
-      }
-
-      // Retornar sucesso - usuário foi criado no Auth
       console.log("✅ [AuthContext] Cadastro concluído - aguardando confirmação de email");
       return {
         success: true,
@@ -374,7 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     document.cookie = "fitstream_auth=; path=/; max-age=0";
     console.log("🍪 [AuthContext] Cookie de autenticação removido");
     console.log("🚀 [AuthContext] Redirecionando para /login");
-    router.push("/login");
+    router.replace("/login");
   };
 
   const updateUser = async (data: Partial<User>) => {
@@ -387,49 +344,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Mapear campos do User para campos da tabela profiles
-      const profileData: any = {};
-      if (data.name !== undefined) profileData.nome = data.name;
-      if (data.email !== undefined) profileData.email = data.email;
-      if (data.phone !== undefined) profileData.celular = data.phone;
-      if (data.unit !== undefined) profileData.unidade = data.unit;
-      if (data.avatar !== undefined) profileData.avatar = data.avatar;
-      if (data.themeMode !== undefined) profileData.theme_mode = data.themeMode;
+      // Atualizar user_metadata no Supabase Auth
+      const updateData: any = {};
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.phone !== undefined) updateData.phone = data.phone;
+      if (data.unit !== undefined) updateData.unit = data.unit;
+      if (data.avatar !== undefined) updateData.avatar = data.avatar;
+      if (data.themeMode !== undefined) updateData.themeMode = data.themeMode;
 
-      const { data: updatedData, error } = await supabase
-        .from('profiles')
-        .update(profileData)
-        .eq('id', user.id)
-        .select();
+      const { data: updatedData, error } = await supabase.auth.updateUser({
+        data: updateData
+      });
 
-      console.log("📊 [Supabase Query] UPDATE profiles WHERE id =", user.id);
-      console.log("📝 [Supabase Query] Dados atualizados:", profileData);
+      console.log("📊 [Supabase Auth] updateUser");
+      console.log("📝 [Supabase Auth] Dados atualizados:", updateData);
       
       if (error) {
         console.error("❌ [AuthContext] Erro ao atualizar usuário:", error.message);
         throw error;
       }
 
-      if (updatedData && updatedData.length > 0) {
-        const updated = updatedData[0];
-        console.log("✅ [AuthContext] Usuário atualizado com sucesso:", {
-          id: updated.id,
-          nome: updated.nome,
-          email: updated.email
-        });
-        
-        // Mapear de volta para o formato User
-        const updatedUser: User = {
-          ...user,
-          name: updated.nome || user.name,
-          email: updated.email || user.email,
-          phone: updated.celular || user.phone,
-          unit: updated.unidade || user.unit,
-          avatar: updated.avatar || user.avatar,
-          themeMode: updated.theme_mode || user.themeMode,
-        };
-        
-        setUser(updatedUser);
+      if (updatedData.user) {
+        console.log("✅ [AuthContext] Usuário atualizado com sucesso");
+        loadUserFromAuth(updatedData.user);
       }
     } catch (err) {
       console.error("❌ [AuthContext] Erro inesperado ao atualizar usuário:", err);
