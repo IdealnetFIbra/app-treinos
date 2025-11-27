@@ -52,16 +52,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // REGRA 2: Se ESTÁ autenticado e tenta acessar /login ou /cadastro -> redirecionar para /comunidade
-  if (isAuthenticated && (pathname === '/login' || pathname === '/cadastro')) {
-    console.log("✅ [Middleware] Usuário já autenticado tentando acessar login/cadastro. Redirecionando para /comunidade");
+  // REGRA 2: Se ESTÁ autenticado e tenta acessar APENAS /login -> redirecionar para /comunidade
+  // IMPORTANTE: Permitir acesso a /cadastro mesmo autenticado (usuário pode querer criar outra conta)
+  if (isAuthenticated && pathname === '/login') {
+    console.log("✅ [Middleware] Usuário já autenticado tentando acessar login. Redirecionando para /comunidade");
     const comunidadeUrl = new URL('/comunidade', request.url);
     return NextResponse.redirect(comunidadeUrl);
   }
 
-  // REGRA 3: Permitir acesso a rotas públicas sem autenticação
-  if (isPublicRoute && !isAuthenticated) {
-    console.log("✅ [Middleware] Permitindo acesso à rota pública sem autenticação:", pathname);
+  // REGRA 3: Permitir acesso a rotas públicas (incluindo /cadastro) para todos
+  if (isPublicRoute) {
+    console.log("✅ [Middleware] Permitindo acesso à rota pública:", pathname);
     return NextResponse.next();
   }
 

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 interface User {
   id: string;
@@ -39,188 +40,337 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("🔍 [AuthContext] Verificando usuário salvo no localStorage");
-    // Verificar se há usuário salvo no localStorage
-    const savedUser = localStorage.getItem("fitstream_user");
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      console.log("✅ [AuthContext] Usuário encontrado no localStorage:", {
-        id: parsedUser.id,
-        name: parsedUser.name,
-        email: parsedUser.email,
-        unit: parsedUser.unit
-      });
-      setUser(parsedUser);
-      setIsAuthenticated(true);
-      // Definir cookie para o middleware
-      document.cookie = "fitstream_auth=true; path=/; max-age=31536000"; // 1 ano
-      console.log("🍪 [AuthContext] Cookie de autenticação definido");
-    } else {
-      console.log("❌ [AuthContext] Nenhum usuário encontrado no localStorage");
-    }
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    console.log("🔐 [AuthContext] Iniciando login com e-mail:", email);
-    // Simulação de login - em produção, fazer chamada à API
-    const mockUser: User = {
-      id: "1",
-      name: "Usuário Teste",
-      email,
-      phone: "(86) 99999-9999",
-      unit: "Simplifit — Zona Norte",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-    };
-
-    console.log("✅ [AuthContext] Login bem-sucedido. Dados do usuário:", {
-      id: mockUser.id,
-      name: mockUser.name,
-      email: mockUser.email,
-      unit: mockUser.unit
+    console.log("🔍 [AuthContext] Verificando sessão do Supabase");
+    
+    // Verificar sessão atual do Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("📊 [AuthContext] Sessão do Supabase:", session ? "Ativa" : "Inativa");
+      
+      if (session?.user) {
+        console.log("✅ [AuthContext] Usuário autenticado encontrado:", {
+          id: session.user.id,
+          email: session.user.email
+        });
+        
+        // Buscar dados completos do usuário na tabela users
+        fetchUserProfile(session.user.id);
+      } else {
+        console.log("❌ [AuthContext] Nenhuma sessão ativa encontrada");
+      }
     });
 
-    setUser(mockUser);
-    setIsAuthenticated(true);
-    localStorage.setItem("fitstream_user", JSON.stringify(mockUser));
-    console.log("💾 [AuthContext] Usuário salvo no localStorage");
+    // Escutar mudanças na autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("🔄 [AuthContext] Mudança no estado de autenticação:", _event);
+      
+      if (session?.user) {
+        console.log("✅ [AuthContext] Novo usuário autenticado:", {
+          id: session.user.id,
+          email: session.user.email
+        });
+        fetchUserProfile(session.user.id);
+      } else {
+        console.log("❌ [AuthContext] Usuário desconectado");
+        setUser(null);
+        setIsAuthenticated(false);
+        document.cookie = "fitstream_auth=; path=/; max-age=0";
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const fetchUserProfile = async (userId: string) => {
+    console.log("🔍 [AuthContext] Buscando perfil do usuário no Supabase:", userId);
     
-    // Definir cookie para o middleware
-    document.cookie = "fitstream_auth=true; path=/; max-age=31536000"; // 1 ano
-    console.log("🍪 [AuthContext] Cookie de autenticação definido");
-    console.log("🚀 [AuthContext] Redirecionando para /comunidade");
-    router.push("/comunidade");
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      console.log("📊 [Supabase Query] SELECT FROM users WHERE id =", userId);
+      
+      if (error) {
+        console.error("❌ [AuthContext] Erro ao buscar perfil:", error.message);
+        return;
+      }
+
+      if (data) {
+        console.log("✅ [AuthContext] Perfil encontrado:", {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          unit: data.unit
+        });
+        
+        const userProfile: User = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone || "",
+          unit: data.unit || "",
+          avatar: data.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+        };
+
+        setUser(userProfile);
+        setIsAuthenticated(true);
+        document.cookie = "fitstream_auth=true; path=/; max-age=31536000";
+        console.log("🍪 [AuthContext] Cookie de autenticação definido");
+      }
+    } catch (err) {
+      console.error("❌ [AuthContext] Erro inesperado ao buscar perfil:", err);
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    console.log("🔐 [AuthContext] Iniciando login com Supabase Auth");
+    console.log("📧 [AuthContext] E-mail:", email);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      console.log("📊 [Supabase Auth] signInWithPassword");
+      
+      if (error) {
+        console.error("❌ [AuthContext] Erro no login:", error.message);
+        throw error;
+      }
+
+      if (data.user) {
+        console.log("✅ [AuthContext] Login bem-sucedido:", {
+          id: data.user.id,
+          email: data.user.email
+        });
+        
+        await fetchUserProfile(data.user.id);
+        console.log("🚀 [AuthContext] Redirecionando para /comunidade");
+        router.push("/comunidade");
+      }
+    } catch (err) {
+      console.error("❌ [AuthContext] Erro inesperado no login:", err);
+      throw err;
+    }
   };
 
   const loginWithGoogle = async () => {
-    console.log("🔐 [AuthContext] Iniciando login com Google");
-    // Simulação de login com Google
-    const mockUser: User = {
-      id: Date.now().toString(),
-      name: "Usuário Google",
-      email: "usuario@gmail.com",
-      phone: "(86) 99999-9999",
-      unit: "Simplifit — Zona Norte",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-    };
-
-    console.log("✅ [AuthContext] Login com Google bem-sucedido. Dados do usuário:", {
-      id: mockUser.id,
-      name: mockUser.name,
-      email: mockUser.email,
-      unit: mockUser.unit
-    });
-
-    setUser(mockUser);
-    setIsAuthenticated(true);
-    localStorage.setItem("fitstream_user", JSON.stringify(mockUser));
-    console.log("💾 [AuthContext] Usuário salvo no localStorage");
+    console.log("🔐 [AuthContext] Iniciando login com Google via Supabase");
     
-    // Definir cookie para o middleware
-    document.cookie = "fitstream_auth=true; path=/; max-age=31536000"; // 1 ano
-    console.log("🍪 [AuthContext] Cookie de autenticação definido");
-    console.log("🚀 [AuthContext] Redirecionando para /comunidade");
-    router.push("/comunidade");
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/comunidade`,
+        },
+      });
+
+      console.log("📊 [Supabase Auth] signInWithOAuth - provider: google");
+      
+      if (error) {
+        console.error("❌ [AuthContext] Erro no login com Google:", error.message);
+        throw error;
+      }
+
+      console.log("✅ [AuthContext] Redirecionamento para Google iniciado");
+    } catch (err) {
+      console.error("❌ [AuthContext] Erro inesperado no login com Google:", err);
+      throw err;
+    }
   };
 
   const loginWithApple = async () => {
-    console.log("🔐 [AuthContext] Iniciando login com Apple");
-    // Simulação de login com Apple
-    const mockUser: User = {
-      id: Date.now().toString(),
-      name: "Usuário Apple",
-      email: "usuario@icloud.com",
-      phone: "(86) 99999-9999",
-      unit: "Simplifit — Zona Norte",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-    };
-
-    console.log("✅ [AuthContext] Login com Apple bem-sucedido. Dados do usuário:", {
-      id: mockUser.id,
-      name: mockUser.name,
-      email: mockUser.email,
-      unit: mockUser.unit
-    });
-
-    setUser(mockUser);
-    setIsAuthenticated(true);
-    localStorage.setItem("fitstream_user", JSON.stringify(mockUser));
-    console.log("💾 [AuthContext] Usuário salvo no localStorage");
+    console.log("🔐 [AuthContext] Iniciando login com Apple via Supabase");
     
-    // Definir cookie para o middleware
-    document.cookie = "fitstream_auth=true; path=/; max-age=31536000"; // 1 ano
-    console.log("🍪 [AuthContext] Cookie de autenticação definido");
-    console.log("🚀 [AuthContext] Redirecionando para /comunidade");
-    router.push("/comunidade");
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: `${window.location.origin}/comunidade`,
+        },
+      });
+
+      console.log("📊 [Supabase Auth] signInWithOAuth - provider: apple");
+      
+      if (error) {
+        console.error("❌ [AuthContext] Erro no login com Apple:", error.message);
+        throw error;
+      }
+
+      console.log("✅ [AuthContext] Redirecionamento para Apple iniciado");
+    } catch (err) {
+      console.error("❌ [AuthContext] Erro inesperado no login com Apple:", err);
+      throw err;
+    }
   };
 
   const signup = async (data: SignupData) => {
-    console.log("📝 [AuthContext] Iniciando cadastro com dados:", {
+    console.log("📝 [AuthContext] Iniciando cadastro com Supabase Auth");
+    console.log("📧 [AuthContext] Dados do cadastro:", {
       name: data.name,
       email: data.email,
       phone: data.phone,
       unit: data.unit
     });
     
-    // Simulação de cadastro - em produção, fazer chamada à API
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      unit: data.unit,
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-    };
+    try {
+      // 1. Criar usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            phone: data.phone,
+            unit: data.unit,
+          }
+        }
+      });
 
-    console.log("✅ [AuthContext] Cadastro bem-sucedido. Dados do novo usuário:", {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      unit: newUser.unit
-    });
+      console.log("📊 [Supabase Auth] signUp");
+      
+      if (authError) {
+        console.error("❌ [AuthContext] Erro ao criar usuário no Auth:", authError.message);
+        throw authError;
+      }
 
-    setUser(newUser);
-    setIsAuthenticated(true);
-    localStorage.setItem("fitstream_user", JSON.stringify(newUser));
-    console.log("💾 [AuthContext] Novo usuário salvo no localStorage");
-    
-    // Definir cookie para o middleware
-    document.cookie = "fitstream_auth=true; path=/; max-age=31536000"; // 1 ano
-    console.log("🍪 [AuthContext] Cookie de autenticação definido");
-    console.log("🚀 [AuthContext] Redirecionando para /comunidade");
-    router.push("/comunidade");
+      if (!authData.user) {
+        console.error("❌ [AuthContext] Usuário não foi criado");
+        throw new Error("Falha ao criar usuário");
+      }
+
+      console.log("✅ [AuthContext] Usuário criado no Supabase Auth:", {
+        id: authData.user.id,
+        email: authData.user.email
+      });
+
+      // 2. Salvar dados completos na tabela users
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: authData.user.id,
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            unit: data.unit,
+            avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+          }
+        ])
+        .select()
+        .single();
+
+      console.log("📊 [Supabase Query] INSERT INTO users");
+      console.log("📝 [Supabase Query] Dados inseridos:", {
+        id: authData.user.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        unit: data.unit
+      });
+      
+      if (userError) {
+        console.error("❌ [AuthContext] Erro ao salvar perfil na tabela users:", userError.message);
+        // Continuar mesmo com erro, pois o usuário foi criado no Auth
+      } else {
+        console.log("✅ [AuthContext] Perfil salvo na tabela users:", {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email
+        });
+      }
+
+      // 3. Configurar estado do usuário
+      const newUser: User = {
+        id: authData.user.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        unit: data.unit,
+        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+      };
+
+      setUser(newUser);
+      setIsAuthenticated(true);
+      document.cookie = "fitstream_auth=true; path=/; max-age=31536000";
+      console.log("🍪 [AuthContext] Cookie de autenticação definido");
+      console.log("🚀 [AuthContext] Redirecionando para /comunidade");
+      router.push("/comunidade");
+    } catch (err) {
+      console.error("❌ [AuthContext] Erro inesperado no cadastro:", err);
+      throw err;
+    }
   };
 
-  const logout = () => {
+  const logout = async () => {
     console.log("🚪 [AuthContext] Iniciando logout");
     console.log("👤 [AuthContext] Usuário antes do logout:", user?.name);
     
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      console.log("📊 [Supabase Auth] signOut");
+      
+      if (error) {
+        console.error("❌ [AuthContext] Erro ao fazer logout:", error.message);
+      } else {
+        console.log("✅ [AuthContext] Logout realizado com sucesso");
+      }
+    } catch (err) {
+      console.error("❌ [AuthContext] Erro inesperado no logout:", err);
+    }
+    
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem("fitstream_user");
-    console.log("🗑️ [AuthContext] Usuário removido do localStorage");
-    
-    // Remover cookie
     document.cookie = "fitstream_auth=; path=/; max-age=0";
     console.log("🍪 [AuthContext] Cookie de autenticação removido");
     console.log("🚀 [AuthContext] Redirecionando para /login");
     router.push("/login");
   };
 
-  const updateUser = (data: Partial<User>) => {
-    console.log("🔄 [AuthContext] Atualizando dados do usuário:", data);
-    if (user) {
-      const updatedUser = { ...user, ...data };
-      console.log("✅ [AuthContext] Usuário atualizado:", {
-        id: updatedUser.id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        unit: updatedUser.unit
-      });
-      setUser(updatedUser);
-      localStorage.setItem("fitstream_user", JSON.stringify(updatedUser));
-      console.log("💾 [AuthContext] Usuário atualizado salvo no localStorage");
-    } else {
+  const updateUser = async (data: Partial<User>) => {
+    console.log("🔄 [AuthContext] Atualizando dados do usuário");
+    console.log("📝 [AuthContext] Dados a atualizar:", data);
+    
+    if (!user) {
       console.log("❌ [AuthContext] Tentativa de atualizar usuário sem estar logado");
+      return;
+    }
+
+    try {
+      const { data: updatedData, error } = await supabase
+        .from('users')
+        .update(data)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      console.log("📊 [Supabase Query] UPDATE users WHERE id =", user.id);
+      console.log("📝 [Supabase Query] Dados atualizados:", data);
+      
+      if (error) {
+        console.error("❌ [AuthContext] Erro ao atualizar usuário:", error.message);
+        throw error;
+      }
+
+      if (updatedData) {
+        console.log("✅ [AuthContext] Usuário atualizado com sucesso:", {
+          id: updatedData.id,
+          name: updatedData.name,
+          email: updatedData.email
+        });
+        
+        const updatedUser = { ...user, ...updatedData };
+        setUser(updatedUser);
+      }
+    } catch (err) {
+      console.error("❌ [AuthContext] Erro inesperado ao atualizar usuário:", err);
+      throw err;
     }
   };
 

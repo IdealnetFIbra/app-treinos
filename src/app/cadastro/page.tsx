@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -8,17 +8,9 @@ import { User, Mail, Phone, MapPin, Lock } from "lucide-react";
 
 export default function CadastroPage() {
   const router = useRouter();
-  const { isAuthenticated, signup } = useAuth();
+  const { signup } = useAuth();
   const { theme } = useTheme();
   const [phone, setPhone] = useState("");
-
-  useEffect(() => {
-    console.log("🔍 [Cadastro] Verificando autenticação. isAuthenticated:", isAuthenticated);
-    if (isAuthenticated) {
-      console.log("✅ [Cadastro] Usuário já autenticado. Redirecionando para /comunidade");
-      router.push("/comunidade");
-    }
-  }, [isAuthenticated, router]);
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, "");
