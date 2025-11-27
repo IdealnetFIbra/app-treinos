@@ -51,7 +51,12 @@ export function Navbar() {
             >
               Programas
             </button>
-            <button className="text-white hover:text-gray-300 transition">Comunidade</button>
+            <button 
+              onClick={() => router.push("/comunidade")}
+              className="text-white hover:text-gray-300 transition"
+            >
+              Comunidade
+            </button>
           </div>
         </div>
 

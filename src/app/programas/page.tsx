@@ -1,11 +1,37 @@
 "use client";
 
-import { Navbar } from "@/components/custom/navbar";
 import { useRouter } from "next/navigation";
-import { Play, Clock, TrendingUp, Calendar, Target } from "lucide-react";
+import { Play, Clock, TrendingUp, Calendar, Target, Users, Dumbbell, Trophy, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/contexts/ThemeContext";
+import ProfileMenu from "@/components/ProfileMenu";
 
-// Dados mockados de programas (podem ser substituídos por dados do Supabase futuramente)
+// Ranking de usuários (tipo stories)
+const rankingUsers = [
+  { 
+    id: "1", 
+    name: "Ana Paula", 
+    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+    points: 1245,
+    position: 1
+  },
+  { 
+    id: "2", 
+    name: "João Pedro", 
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+    points: 1198,
+    position: 2
+  },
+  { 
+    id: "3", 
+    name: "Fernanda Lima", 
+    avatar: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=100&h=100&fit=crop",
+    points: 1176,
+    position: 3
+  },
+];
+
+// Dados mockados de programas
 const programs = [
   {
     id: "1",
@@ -83,19 +109,127 @@ const programs = [
 
 export default function ProgramasPage() {
   const router = useRouter();
+  const { theme } = useTheme();
 
   return (
-    <div className="min-h-screen bg-[#000000]">
-      <Navbar />
+    <div className={`min-h-screen pb-20 ${
+      theme === "light" ? "bg-gray-50" : "bg-[#0B0B0B]"
+    }`}>
+      {/* Header Fixo */}
+      <header className={`fixed top-0 left-0 right-0 z-50 shadow-lg ${
+        theme === "light" ? "bg-white" : "bg-black"
+      }`}>
+        <div className="flex items-center justify-between px-4 py-4">
+          <button
+            onClick={() => router.push("/comunidade")}
+            className={`p-2 rounded-lg transition ${
+              theme === "light"
+                ? "hover:bg-gray-100"
+                : "hover:bg-gray-800"
+            }`}
+          >
+            <ArrowLeft className={`w-6 h-6 ${
+              theme === "light" ? "text-gray-900" : "text-white"
+            }`} />
+          </button>
+          <button
+            onClick={() => router.push("/comunidade")}
+            className="text-2xl font-bold hover:opacity-80 transition-opacity"
+          >
+            <span className="text-red-600">FIT</span>
+            <span className={theme === "light" ? "text-gray-900" : "text-white"}>STREAM</span>
+          </button>
+          <ProfileMenu />
+        </div>
+      </header>
+
+      {/* Espaçamento para header fixo */}
+      <div className="h-16"></div>
+
+      {/* RANKING TIPO STORIES - TOP 3 */}
+      <div className={`px-4 py-6 ${
+        theme === "light" 
+          ? "bg-gradient-to-b from-white to-transparent" 
+          : "bg-gradient-to-b from-black to-transparent"
+      }`}>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy className="w-5 h-5 text-yellow-500" />
+            <h2 className={`font-bold text-lg ${
+              theme === "light" ? "text-gray-900" : "text-white"
+            }`}>
+              Top 3 do Ranking
+            </h2>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {rankingUsers.map((user) => (
+              <div
+                key={user.id}
+                className="flex-shrink-0 flex flex-col items-center gap-2"
+              >
+                {/* Avatar com borda de ranking */}
+                <div className="relative">
+                  <div
+                    className={`w-20 h-20 rounded-full p-1 ${
+                      user.position === 1
+                        ? "bg-gradient-to-br from-yellow-400 to-yellow-600"
+                        : user.position === 2
+                        ? "bg-gradient-to-br from-gray-300 to-gray-500"
+                        : "bg-gradient-to-br from-orange-400 to-orange-600"
+                    }`}
+                  >
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className={`w-full h-full rounded-full object-cover border-2 ${
+                        theme === "light" ? "border-white" : "border-black"
+                      }`}
+                    />
+                  </div>
+                  {/* Badge de posição */}
+                  <div
+                    className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                      user.position === 1
+                        ? "bg-yellow-500"
+                        : user.position === 2
+                        ? "bg-gray-400"
+                        : "bg-orange-500"
+                    }`}
+                  >
+                    {user.position}º
+                  </div>
+                </div>
+                {/* Nome e pontos */}
+                <div className="text-center">
+                  <p className={`text-sm font-semibold max-w-[80px] truncate ${
+                    theme === "light" ? "text-gray-900" : "text-white"
+                  }`}>
+                    {user.name}
+                  </p>
+                  <p className={`text-xs ${
+                    theme === "light" ? "text-gray-600" : "text-gray-400"
+                  }`}>
+                    {user.points} pts
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
       
       {/* Hero Section */}
-      <div className="relative pt-24 pb-12 px-4 md:px-12">
+      <div className="relative pt-4 pb-6 px-4 md:px-12">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
+          <h1 className={`text-2xl md:text-3xl font-bold mb-2 ${
+            theme === "light" ? "text-gray-900" : "text-white"
+          }`}>
             Programas de Treino
           </h1>
-          <p className="text-white/70 text-lg md:text-xl max-w-2xl">
-            Programas completos e estruturados para você alcançar seus objetivos fitness de forma consistente.
+          <p className={`text-sm md:text-base max-w-2xl ${
+            theme === "light" ? "text-gray-600" : "text-gray-400"
+          }`}>
+            Programas completos e estruturados
           </p>
         </div>
       </div>
@@ -107,9 +241,12 @@ export default function ProgramasPage() {
             {programs.map((program) => (
               <div
                 key={program.id}
-                className="group bg-white/5 rounded-lg overflow-hidden hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                className={`group rounded-lg overflow-hidden transition-all duration-300 cursor-pointer ${
+                  theme === "light"
+                    ? "bg-white hover:shadow-xl"
+                    : "bg-white/5 hover:bg-white/10"
+                }`}
                 onClick={() => {
-                  // Futuramente pode redirecionar para página de detalhes do programa
                   console.log("Programa selecionado:", program.id);
                 }}
               >
@@ -132,16 +269,22 @@ export default function ProgramasPage() {
 
                   {/* Conteúdo */}
                   <div className="flex-1 p-6">
-                    <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
+                    <h3 className={`text-xl md:text-2xl font-bold mb-2 ${
+                      theme === "light" ? "text-gray-900" : "text-white"
+                    }`}>
                       {program.title}
                     </h3>
                     
-                    <p className="text-white/70 text-sm mb-4 line-clamp-2">
+                    <p className={`text-sm mb-4 line-clamp-2 ${
+                      theme === "light" ? "text-gray-600" : "text-gray-400"
+                    }`}>
                       {program.description}
                     </p>
 
                     {/* Informações */}
-                    <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-white/60">
+                    <div className={`flex flex-wrap items-center gap-4 mb-4 text-sm ${
+                      theme === "light" ? "text-gray-600" : "text-gray-400"
+                    }`}>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         {program.duration}
@@ -158,12 +301,20 @@ export default function ProgramasPage() {
 
                     {/* Objetivos */}
                     <div className="mb-4">
-                      <p className="text-white/60 text-xs mb-2">Objetivos:</p>
+                      <p className={`text-xs mb-2 ${
+                        theme === "light" ? "text-gray-600" : "text-gray-400"
+                      }`}>
+                        Objetivos:
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         {program.goals.map((goal, index) => (
                           <span
                             key={index}
-                            className="px-2 py-1 bg-white/10 rounded text-xs text-white/80"
+                            className={`px-2 py-1 rounded text-xs ${
+                              theme === "light"
+                                ? "bg-gray-100 text-gray-700"
+                                : "bg-white/10 text-white/80"
+                            }`}
                           >
                             {goal}
                           </span>
@@ -176,11 +327,19 @@ export default function ProgramasPage() {
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
                         {program.instructor.charAt(0)}
                       </div>
-                      <span className="text-white/70 text-sm">{program.instructor}</span>
+                      <span className={`text-sm ${
+                        theme === "light" ? "text-gray-600" : "text-gray-400"
+                      }`}>
+                        {program.instructor}
+                      </span>
                     </div>
 
                     {/* Botão */}
-                    <Button className="w-full bg-white text-black hover:bg-white/90 font-semibold">
+                    <Button className={`w-full font-semibold ${
+                      theme === "light"
+                        ? "bg-[#E50914] text-white hover:bg-[#C4070F]"
+                        : "bg-white text-black hover:bg-white/90"
+                    }`}>
                       <Target className="w-4 h-4 mr-2" />
                       Começar Programa
                     </Button>
@@ -191,6 +350,55 @@ export default function ProgramasPage() {
           </div>
         </div>
       </div>
+
+      {/* BARRA DE NAVEGAÇÃO INFERIOR */}
+      <nav className={`fixed bottom-0 left-0 right-0 border-t z-50 ${
+        theme === "light" 
+          ? "bg-white border-gray-200" 
+          : "bg-black border-gray-800"
+      }`}>
+        <div className="flex items-center justify-around py-3">
+          <button
+            onClick={() => router.push("/comunidade")}
+            className="flex flex-col items-center gap-1"
+          >
+            <Users className={`w-6 h-6 ${
+              theme === "light" ? "text-gray-500" : "text-gray-500"
+            }`} />
+            <span className={`text-xs ${
+              theme === "light" ? "text-gray-500" : "text-gray-500"
+            }`}>
+              Comunidade
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/programas")}
+            className="flex flex-col items-center gap-1"
+          >
+            <Target className={`w-6 h-6 ${
+              theme === "light" ? "text-gray-900" : "text-white"
+            }`} />
+            <span className={`text-xs font-semibold ${
+              theme === "light" ? "text-gray-900" : "text-white"
+            }`}>
+              Programas
+            </span>
+          </button>
+          <button
+            onClick={() => router.push("/treinos")}
+            className="flex flex-col items-center gap-1"
+          >
+            <Dumbbell className={`w-6 h-6 ${
+              theme === "light" ? "text-gray-500" : "text-gray-500"
+            }`} />
+            <span className={`text-xs ${
+              theme === "light" ? "text-gray-500" : "text-gray-500"
+            }`}>
+              Treinos
+            </span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
