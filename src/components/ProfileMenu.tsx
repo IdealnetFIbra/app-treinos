@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { UserCircle2, Sun, Moon } from "lucide-react";
+import { UserCircle2, Sun, Moon, LogOut } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -10,7 +10,7 @@ export default function ProfileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -28,6 +28,11 @@ export default function ProfileMenu() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
+
+  const handleLogout = () => {
+    setIsOpen(false);
+    logout();
+  };
 
   return (
     <div className="relative" ref={menuRef}>
@@ -97,6 +102,19 @@ export default function ProfileMenu() {
             }`}
           >
             Meu Perfil
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className={`w-full px-4 py-3 text-left text-sm font-medium transition flex items-center gap-2 ${
+              theme === "light"
+                ? "text-red-600 hover:bg-red-50"
+                : "text-red-400 hover:bg-[#0B0B0B]"
+            }`}
+          >
+            <LogOut className="w-4 h-4" />
+            Sair
           </button>
         </div>
       )}

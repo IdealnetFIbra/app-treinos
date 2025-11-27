@@ -6,8 +6,9 @@ import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Users, Target,
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import ProfileMenu from "@/components/ProfileMenu";
+import { getPosts, createPost, likePost, unlikePost, Post } from "@/lib/posts";
 
-interface Post {
+interface PostDisplay {
   id: string;
   type: "checkin" | "resultado" | "nutricao" | "aviso" | "momento";
   user: {
@@ -27,72 +28,8 @@ interface Post {
     kcal: string;
   };
   isVideo?: boolean;
+  userHasLiked?: boolean;
 }
-
-const mockPosts: Post[] = [
-  {
-    id: "1",
-    type: "checkin",
-    user: {
-      name: "Carlos Silva",
-      avatar: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=100&h=100&fit=crop",
-      unit: "Simplifit — Zona Norte"
-    },
-    timestamp: "há 2h",
-    image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&h=600&fit=crop",
-    caption: "Check-in feito! Hoje foi treino de peito 💥",
-    likes: 42,
-    comments: 8
-  },
-  {
-    id: "2",
-    type: "resultado",
-    user: {
-      name: "Mariana Costa",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-      unit: "Simplifit — Centro"
-    },
-    timestamp: "há 5h",
-    image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop",
-    imageSecondary: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=600&fit=crop",
-    caption: "6 semanas focado. Rumo ao próximo nível! 🔥💪",
-    likes: 128,
-    comments: 24
-  },
-  {
-    id: "3",
-    type: "nutricao",
-    user: {
-      name: "Rafael Mendes",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-      unit: "Simplifit — Zona Sul"
-    },
-    timestamp: "há 8h",
-    image: "https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?w=800&h=600&fit=crop",
-    caption: "Overnight de Whey — receita na descrição! 🥣",
-    likes: 67,
-    comments: 15,
-    nutrition: {
-      protein: "28g",
-      carbs: "32g",
-      kcal: "390"
-    }
-  },
-  {
-    id: "4",
-    type: "aviso",
-    user: {
-      name: "Simplifit Oficial",
-      avatar: "https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=100&h=100&fit=crop",
-      unit: "Simplifit — Todas as Unidades"
-    },
-    timestamp: "há 1 dia",
-    image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&h=600&fit=crop",
-    caption: "🚨 AVISO: Nova turma de funcional às 6h! Vagas limitadas. Garanta a sua!",
-    likes: 203,
-    comments: 45
-  }
-];
 
 export default function ComunidadePage() {
   const router = useRouter();
@@ -101,10 +38,12 @@ export default function ComunidadePage() {
   const [newPostCaption, setNewPostCaption] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<"image" | "video" | null>(null);
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [posts, setPosts] = useState<PostDisplay[]>([]);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [showCopyFeedback, setShowCopyFeedback] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     console.log("🔍 [Comunidade] Verificando autenticação. isAuthenticated:", isAuthenticated);
@@ -114,8 +53,64 @@ export default function ComunidadePage() {
     } else {
       console.log("✅ [Comunidade] Usuário autenticado. Carregando feed");
       console.log("👤 [Comunidade] Dados do usuário:", user);
+      loadPosts();
     }
   }, [isAuthenticated, router, user]);
+
+  const loadPosts = async () => {
+    try {
+      setLoading(true);
+      console.log("📥 [Comunidade] Carregando posts do Supabase...");
+      const data = await getPosts();
+      
+      // Converter formato do Supabase para formato do componente
+      const formattedPosts: PostDisplay[] = data.map((post: Post) => ({
+        id: post.id,
+        type: post.type,
+        user: {
+          name: post.user?.user_metadata?.name || "Usuário",
+          avatar: post.user?.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+          unit: post.user?.user_metadata?.unit || "Simplifit"
+        },
+        timestamp: formatTimestamp(post.created_at),
+        image: post.image_url || "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&h=600&fit=crop",
+        imageSecondary: post.image_secondary_url,
+        caption: post.caption,
+        likes: post.likes_count || 0,
+        comments: post.comments_count || 0,
+        nutrition: post.nutrition_protein ? {
+          protein: post.nutrition_protein,
+          carbs: post.nutrition_carbs || "",
+          kcal: post.nutrition_kcal || ""
+        } : undefined,
+        isVideo: post.is_video,
+        userHasLiked: post.user_has_liked
+      }));
+
+      setPosts(formattedPosts);
+      console.log("✅ [Comunidade] Posts carregados:", formattedPosts.length);
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao carregar posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    const now = new Date();
+    const postDate = new Date(timestamp);
+    const diffMs = now.getTime() - postDate.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "agora";
+    if (diffMins < 60) return `há ${diffMins}min`;
+    if (diffHours < 24) return `há ${diffHours}h`;
+    if (diffDays === 1) return "há 1 dia";
+    if (diffDays < 7) return `há ${diffDays} dias`;
+    return postDate.toLocaleDateString('pt-BR');
+  };
 
   const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>, type: "image" | "video") => {
     console.log("📸 [Comunidade] Selecionando mídia. Tipo:", type);
@@ -142,7 +137,7 @@ export default function ComunidadePage() {
     }
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     console.log("📝 [Comunidade] Tentando publicar post");
     if (!isAuthenticated) {
       console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando publicação");
@@ -155,39 +150,36 @@ export default function ComunidadePage() {
       return;
     }
 
-    const newPost: Post = {
-      id: Date.now().toString(),
-      type: mediaType === "video" ? "momento" : "checkin",
-      user: {
-        name: user.name,
-        avatar: user.avatar,
-        unit: user.unit
-      },
-      timestamp: "agora",
-      image: selectedMedia || "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&h=600&fit=crop",
-      caption: newPostCaption,
-      likes: 0,
-      comments: 0,
-      isVideo: mediaType === "video"
-    };
+    try {
+      setPublishing(true);
+      console.log("📤 [Comunidade] Enviando post para Supabase...");
+      
+      await createPost({
+        caption: newPostCaption,
+        type: mediaType === "video" ? "momento" : "checkin",
+        image_url: selectedMedia || undefined,
+        is_video: mediaType === "video",
+      });
 
-    console.log("✅ [Comunidade] Post criado com sucesso:", {
-      id: newPost.id,
-      type: newPost.type,
-      user: newPost.user.name,
-      caption: newPost.caption,
-      hasMedia: !!selectedMedia
-    });
-
-    setPosts([newPost, ...posts]);
-    console.log("📊 [Comunidade] Total de posts após publicação:", posts.length + 1);
-    setNewPostCaption("");
-    setSelectedMedia(null);
-    setMediaType(null);
-    console.log("🧹 [Comunidade] Formulário limpo");
+      console.log("✅ [Comunidade] Post publicado com sucesso!");
+      
+      // Limpar formulário
+      setNewPostCaption("");
+      setSelectedMedia(null);
+      setMediaType(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao publicar post:", error);
+      alert("Erro ao publicar post. Tente novamente.");
+    } finally {
+      setPublishing(false);
+    }
   };
 
-  const handleLike = (postId: string) => {
+  const handleLike = async (postId: string) => {
     console.log("❤️ [Comunidade] Tentando curtir post:", postId);
     if (!isAuthenticated) {
       console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando curtida");
@@ -195,13 +187,35 @@ export default function ComunidadePage() {
       return;
     }
 
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        console.log("✅ [Comunidade] Post curtido. Likes antes:", post.likes, "Likes depois:", post.likes + 1);
-        return { ...post, likes: post.likes + 1 };
+    try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
+      // Atualizar UI otimisticamente
+      setPosts(posts.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            likes: p.userHasLiked ? p.likes - 1 : p.likes + 1,
+            userHasLiked: !p.userHasLiked
+          };
+        }
+        return p;
+      }));
+
+      // Enviar para Supabase
+      if (post.userHasLiked) {
+        await unlikePost(postId);
+        console.log("💔 [Comunidade] Post descurtido");
+      } else {
+        await likePost(postId);
+        console.log("❤️ [Comunidade] Post curtido");
       }
-      return post;
-    }));
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao curtir post:", error);
+      // Reverter mudança em caso de erro
+      await loadPosts();
+    }
   };
 
   const handleComment = (postId: string) => {
@@ -411,204 +425,230 @@ export default function ComunidadePage() {
                     
                     <button
                       onClick={handlePublish}
-                      disabled={!newPostCaption.trim()}
+                      disabled={!newPostCaption.trim() || publishing}
                       className="bg-[#E50914] text-white px-5 py-1.5 rounded-full text-sm font-semibold hover:bg-[#C4070F] transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Publicar
+                      {publishing ? "Publicando..." : "Publicar"}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Loading State */}
+            {loading && (
+              <div className="text-center py-12">
+                <div className={`inline-block animate-spin rounded-full h-12 w-12 border-4 border-solid border-current border-r-transparent ${
+                  theme === "light" ? "text-gray-900" : "text-white"
+                }`}></div>
+                <p className={`mt-4 ${theme === "light" ? "text-gray-600" : "text-gray-400"}`}>
+                  Carregando posts...
+                </p>
+              </div>
+            )}
+
             {/* Feed de Posts */}
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  className={`rounded-xl overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-[1.01] ${
-                    post.type === "aviso" 
-                      ? theme === "light"
-                        ? "bg-gradient-to-br from-red-50 to-white"
-                        : "bg-gradient-to-br from-[#E50914]/20 to-[#1A1A1A]"
-                      : theme === "light"
-                        ? "bg-white"
-                        : "bg-[#1A1A1A]"
-                  }`}
-                  onClick={() => router.push(`/comunidade/post/${post.id}`)}
-                >
-                  {/* Topo do Card */}
-                  <div className="p-4 flex items-center gap-3">
-                    <img
-                      src={post.user.avatar}
-                      alt={post.user.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div className="flex-1">
-                      <h3 className={`font-semibold ${
-                        theme === "light" ? "text-gray-900" : "text-white"
-                      }`}>
-                        {post.user.name}
-                      </h3>
-                      <p className={`text-sm ${
-                        theme === "light" ? "text-gray-600" : "text-gray-400"
-                      }`}>
-                        {post.user.unit}
-                      </p>
-                    </div>
-                    <span className={`text-sm ${
-                      theme === "light" ? "text-gray-500" : "text-gray-500"
-                    }`}>
-                      {post.timestamp}
-                    </span>
-                  </div>
-
-                  {/* Imagem(ns) ou Vídeo */}
-                  <div className="relative">
-                    {post.isVideo ? (
-                      <div className={`relative w-full h-[500px] flex items-center justify-center ${
-                        theme === "light" ? "bg-gray-100" : "bg-black"
-                      }`}>
-                        <Video className={`w-16 h-16 ${
-                          theme === "light" ? "text-gray-400" : "text-gray-600"
-                        }`} />
-                        <div className="absolute top-4 left-4 bg-[#E50914] text-white text-xs px-2 py-1 rounded-full font-semibold">
-                          FITZ
-                        </div>
-                      </div>
-                    ) : post.imageSecondary ? (
-                      <div className="grid grid-cols-2 gap-1">
-                        <img
-                          src={post.image}
-                          alt="Antes"
-                          className="w-full h-[400px] object-cover"
-                        />
-                        <img
-                          src={post.imageSecondary}
-                          alt="Depois"
-                          className="w-full h-[400px] object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <img
-                        src={post.image}
-                        alt="Post"
-                        className="w-full h-[500px] object-cover"
-                      />
-                    )}
-                  </div>
-
-                  {/* Legenda */}
-                  <div className="p-4">
-                    <p className={`mb-3 ${
-                      theme === "light" ? "text-gray-900" : "text-white"
-                    }`}>
-                      {post.caption}
+            {!loading && (
+              <div className="space-y-6">
+                {posts.length === 0 ? (
+                  <div className={`text-center py-12 rounded-xl ${
+                    theme === "light" ? "bg-white" : "bg-[#1A1A1A]"
+                  }`}>
+                    <p className={`text-lg ${theme === "light" ? "text-gray-600" : "text-gray-400"}`}>
+                      Nenhum post ainda. Seja o primeiro a compartilhar!
                     </p>
-
-                    {/* Box de Nutrição */}
-                    {post.nutrition && (
-                      <div className={`rounded-lg p-4 mb-3 grid grid-cols-3 gap-4 ${
-                        theme === "light" ? "bg-gray-50" : "bg-[#0B0B0B]"
-                      }`}>
-                        <div className="text-center">
-                          <p className={`text-xs mb-1 ${
-                            theme === "light" ? "text-gray-600" : "text-gray-400"
-                          }`}>
-                            Proteína
-                          </p>
-                          <p className={`font-bold ${
-                            theme === "light" ? "text-gray-900" : "text-white"
-                          }`}>
-                            {post.nutrition.protein}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className={`text-xs mb-1 ${
-                            theme === "light" ? "text-gray-600" : "text-gray-400"
-                          }`}>
-                            Carboidratos
-                          </p>
-                          <p className={`font-bold ${
-                            theme === "light" ? "text-gray-900" : "text-white"
-                          }`}>
-                            {post.nutrition.carbs}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className={`text-xs mb-1 ${
-                            theme === "light" ? "text-gray-600" : "text-gray-400"
-                          }`}>
-                            Calorias
-                          </p>
-                          <p className={`font-bold ${
-                            theme === "light" ? "text-gray-900" : "text-white"
-                          }`}>
-                            {post.nutrition.kcal}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Ações */}
-                    <div className="flex items-center gap-6 mb-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLike(post.id);
-                        }}
-                        className={`flex items-center gap-2 transition ${
-                          theme === "light"
-                            ? "text-gray-600 hover:text-[#E50914]"
-                            : "text-gray-400 hover:text-[#E50914]"
-                        }`}
-                      >
-                        <Heart className="w-6 h-6" />
-                        <span className="text-sm font-semibold">{post.likes}</span>
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleComment(post.id);
-                        }}
-                        className={`flex items-center gap-2 transition ${
-                          theme === "light"
-                            ? "text-gray-600 hover:text-gray-900"
-                            : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <MessageCircle className="w-6 h-6" />
-                        <span className="text-sm font-semibold">{post.comments}</span>
-                      </button>
-                      <button 
-                        onClick={(e) => handleShareClick(e, post.id)}
-                        className={`flex items-center gap-2 transition ${
-                          theme === "light"
-                            ? "text-gray-600 hover:text-gray-900"
-                            : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <Share2 className="w-6 h-6" />
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/comunidade/post/${post.id}`);
-                      }}
-                      className={`text-sm transition ${
-                        theme === "light"
-                          ? "text-gray-500 hover:text-gray-700"
-                          : "text-gray-500 hover:text-gray-300"
-                      }`}
-                    >
-                      Ver todos os {post.comments} comentários
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ) : (
+                  posts.map((post) => (
+                    <div
+                      key={post.id}
+                      className={`rounded-xl overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-[1.01] ${
+                        post.type === "aviso" 
+                          ? theme === "light"
+                            ? "bg-gradient-to-br from-red-50 to-white"
+                            : "bg-gradient-to-br from-[#E50914]/20 to-[#1A1A1A]"
+                          : theme === "light"
+                            ? "bg-white"
+                            : "bg-[#1A1A1A]"
+                      }`}
+                      onClick={() => router.push(`/comunidade/post/${post.id}`)}
+                    >
+                      {/* Topo do Card */}
+                      <div className="p-4 flex items-center gap-3">
+                        <img
+                          src={post.user.avatar}
+                          alt={post.user.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                        <div className="flex-1">
+                          <h3 className={`font-semibold ${
+                            theme === "light" ? "text-gray-900" : "text-white"
+                          }`}>
+                            {post.user.name}
+                          </h3>
+                          <p className={`text-sm ${
+                            theme === "light" ? "text-gray-600" : "text-gray-400"
+                          }`}>
+                            {post.user.unit}
+                          </p>
+                        </div>
+                        <span className={`text-sm ${
+                          theme === "light" ? "text-gray-500" : "text-gray-500"
+                        }`}>
+                          {post.timestamp}
+                        </span>
+                      </div>
+
+                      {/* Imagem(ns) ou Vídeo */}
+                      <div className="relative">
+                        {post.isVideo ? (
+                          <div className={`relative w-full h-[500px] flex items-center justify-center ${
+                            theme === "light" ? "bg-gray-100" : "bg-black"
+                          }`}>
+                            <Video className={`w-16 h-16 ${
+                              theme === "light" ? "text-gray-400" : "text-gray-600"
+                            }`} />
+                            <div className="absolute top-4 left-4 bg-[#E50914] text-white text-xs px-2 py-1 rounded-full font-semibold">
+                              FITZ
+                            </div>
+                          </div>
+                        ) : post.imageSecondary ? (
+                          <div className="grid grid-cols-2 gap-1">
+                            <img
+                              src={post.image}
+                              alt="Antes"
+                              className="w-full h-[400px] object-cover"
+                            />
+                            <img
+                              src={post.imageSecondary}
+                              alt="Depois"
+                              className="w-full h-[400px] object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <img
+                            src={post.image}
+                            alt="Post"
+                            className="w-full h-[500px] object-cover"
+                          />
+                        )}
+                      </div>
+
+                      {/* Legenda */}
+                      <div className="p-4">
+                        <p className={`mb-3 ${
+                          theme === "light" ? "text-gray-900" : "text-white"
+                        }`}>
+                          {post.caption}
+                        </p>
+
+                        {/* Box de Nutrição */}
+                        {post.nutrition && (
+                          <div className={`rounded-lg p-4 mb-3 grid grid-cols-3 gap-4 ${
+                            theme === "light" ? "bg-gray-50" : "bg-[#0B0B0B]"
+                          }`}>
+                            <div className="text-center">
+                              <p className={`text-xs mb-1 ${
+                                theme === "light" ? "text-gray-600" : "text-gray-400"
+                              }`}>
+                                Proteína
+                              </p>
+                              <p className={`font-bold ${
+                                theme === "light" ? "text-gray-900" : "text-white"
+                              }`}>
+                                {post.nutrition.protein}
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <p className={`text-xs mb-1 ${
+                                theme === "light" ? "text-gray-600" : "text-gray-400"
+                              }`}>
+                                Carboidratos
+                              </p>
+                              <p className={`font-bold ${
+                                theme === "light" ? "text-gray-900" : "text-white"
+                              }`}>
+                                {post.nutrition.carbs}
+                              </p>
+                            </div>
+                            <div className="text-center">
+                              <p className={`text-xs mb-1 ${
+                                theme === "light" ? "text-gray-600" : "text-gray-400"
+                              }`}>
+                                Calorias
+                              </p>
+                              <p className={`font-bold ${
+                                theme === "light" ? "text-gray-900" : "text-white"
+                              }`}>
+                                {post.nutrition.kcal}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Ações */}
+                        <div className="flex items-center gap-6 mb-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLike(post.id);
+                            }}
+                            className={`flex items-center gap-2 transition ${
+                              post.userHasLiked
+                                ? "text-[#E50914]"
+                                : theme === "light"
+                                  ? "text-gray-600 hover:text-[#E50914]"
+                                  : "text-gray-400 hover:text-[#E50914]"
+                            }`}
+                          >
+                            <Heart className={`w-6 h-6 ${post.userHasLiked ? "fill-current" : ""}`} />
+                            <span className="text-sm font-semibold">{post.likes}</span>
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleComment(post.id);
+                            }}
+                            className={`flex items-center gap-2 transition ${
+                              theme === "light"
+                                ? "text-gray-600 hover:text-gray-900"
+                                : "text-gray-400 hover:text-white"
+                            }`}
+                          >
+                            <MessageCircle className="w-6 h-6" />
+                            <span className="text-sm font-semibold">{post.comments}</span>
+                          </button>
+                          <button 
+                            onClick={(e) => handleShareClick(e, post.id)}
+                            className={`flex items-center gap-2 transition ${
+                              theme === "light"
+                                ? "text-gray-600 hover:text-gray-900"
+                                : "text-gray-400 hover:text-white"
+                            }`}
+                          >
+                            <Share2 className="w-6 h-6" />
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/comunidade/post/${post.id}`);
+                          }}
+                          className={`text-sm transition ${
+                            theme === "light"
+                              ? "text-gray-500 hover:text-gray-700"
+                              : "text-gray-500 hover:text-gray-300"
+                          }`}
+                        >
+                          Ver todos os {post.comments} comentários
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sidebar Desktop */}
