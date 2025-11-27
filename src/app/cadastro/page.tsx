@@ -4,13 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { User, Mail, Phone, MapPin, Lock } from "lucide-react";
+import { User, Mail, Phone, MapPin, Lock, CheckCircle, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function CadastroPage() {
   const router = useRouter();
   const { signup } = useAuth();
   const { theme } = useTheme();
   const [phone, setPhone] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, "");
@@ -31,6 +33,9 @@ export default function CadastroPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log("📝 [Cadastro] Iniciando cadastro");
+    
+    setIsLoading(true);
+    
     const formData = new FormData(e.currentTarget);
     
     const signupData = {
@@ -41,12 +46,62 @@ export default function CadastroPage() {
       unit: formData.get("unit") as string,
     };
 
+    // Validação básica
+    if (!signupData.name || !signupData.email || !signupData.phone || !signupData.password || !signupData.unit) {
+      toast.error("Preencha todos os campos corretamente", {
+        description: "Todos os campos são obrigatórios",
+        icon: <AlertCircle className="w-5 h-5" />,
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (signupData.password.length < 6) {
+      toast.error("Senha muito curta", {
+        description: "A senha deve ter no mínimo 6 caracteres",
+        icon: <AlertCircle className="w-5 h-5" />,
+      });
+      setIsLoading(false);
+      return;
+    }
+
     console.log("📝 [Cadastro] Dados do formulário:", {
       ...signupData,
       password: "***"
     });
 
-    await signup(signupData);
+    try {
+      const result = await signup(signupData);
+      
+      if (result.success) {
+        // Mostrar mensagem de sucesso com instruções claras
+        toast.success("✅ Cadastro criado com sucesso!", {
+          description: "📧 Acesse seu e-mail para confirmar o cadastro. Verifique também a caixa de spam.",
+          icon: <CheckCircle className="w-5 h-5" />,
+          duration: 8000,
+        });
+        
+        // Aguardar 3 segundos e redirecionar para login
+        setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+      } else {
+        // Mostrar mensagem de erro específica
+        toast.error("❌ Erro ao criar conta", {
+          description: result.message,
+          icon: <AlertCircle className="w-5 h-5" />,
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      toast.error("❌ Erro inesperado", {
+        description: "Ocorreu um erro ao criar sua conta. Verifique os dados e tente novamente.",
+        icon: <AlertCircle className="w-5 h-5" />,
+        duration: 5000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -181,6 +236,11 @@ export default function CadastroPage() {
                   }`}
                 />
               </div>
+              <p className={`text-xs mt-1 ${
+                theme === "light" ? "text-gray-500" : "text-gray-400"
+              }`}>
+                Mínimo de 6 caracteres
+              </p>
             </div>
 
             <div>
@@ -216,9 +276,14 @@ export default function CadastroPage() {
 
             <button
               type="submit"
-              className="w-full bg-[#E50914] text-white py-3 rounded-lg font-semibold hover:bg-[#C4070F] transition mt-6"
+              disabled={isLoading}
+              className={`w-full bg-[#E50914] text-white py-3 rounded-lg font-semibold transition mt-6 ${
+                isLoading 
+                  ? "opacity-50 cursor-not-allowed" 
+                  : "hover:bg-[#C4070F]"
+              }`}
             >
-              Criar conta
+              {isLoading ? "Criando conta..." : "Criar conta"}
             </button>
           </form>
 

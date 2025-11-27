@@ -6,6 +6,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -59,6 +60,7 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <PWAInstallPrompt />
+            <Toaster position="top-center" richColors />
           </AuthProvider>
         </ThemeProvider>
         <Script id="register-sw" strategy="afterInteractive">

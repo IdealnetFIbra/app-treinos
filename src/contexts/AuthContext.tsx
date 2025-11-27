@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 interface User {
@@ -11,15 +11,17 @@ interface User {
   phone: string;
   unit: string;
   avatar: string;
+  themeMode?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithApple: () => Promise<void>;
-  signup: (data: SignupData) => Promise<void>;
+  signup: (data: SignupData) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
 }
@@ -34,10 +36,18 @@ interface SignupData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Rotas públicas (não exigem login)
+const PUBLIC_ROUTES = ['/login', '/cadastro', '/esqueci-senha', '/auth/callback'];
+
+// Rotas protegidas (exigem login)
+const PROTECTED_ROUTES = ['/comunidade', '/programas', '/treinos', '/perfil', '/premium'];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     console.log("🔍 [AuthContext] Verificando sessão do Supabase");
@@ -52,10 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: session.user.email
         });
         
-        // Buscar dados completos do usuário na tabela users
+        // Buscar dados completos do usuário na tabela profiles
         fetchUserProfile(session.user.id);
       } else {
         console.log("❌ [AuthContext] Nenhuma sessão ativa encontrada");
+        setIsLoading(false);
       }
     });
 
@@ -73,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("❌ [AuthContext] Usuário desconectado");
         setUser(null);
         setIsAuthenticated(false);
+        setIsLoading(false);
         document.cookie = "fitstream_auth=; path=/; max-age=0";
       }
     });
@@ -82,47 +94,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Guard de rotas - executar após carregar autenticação
+  useEffect(() => {
+    if (isLoading) return; // Aguardar carregar autenticação
+
+    const currentPath = pathname || '/';
+    console.log("🛡️ [AuthContext] Guard de rotas - Caminho atual:", currentPath);
+    console.log("🛡️ [AuthContext] Usuário autenticado:", isAuthenticated);
+
+    // Se usuário NÃO está logado
+    if (!isAuthenticated) {
+      // Permitir acesso apenas a rotas públicas
+      const isPublicRoute = PUBLIC_ROUTES.some(route => currentPath.startsWith(route));
+      
+      if (!isPublicRoute && currentPath !== '/') {
+        console.log("🚫 [AuthContext] Rota protegida sem autenticação - Redirecionando para /login");
+        router.push('/login');
+      }
+    }
+
+    // Se usuário ESTÁ logado
+    if (isAuthenticated) {
+      // Se tentar acessar /login ou /cadastro, redirecionar para /comunidade
+      if (currentPath === '/login' || currentPath === '/cadastro') {
+        console.log("🔄 [AuthContext] Usuário logado tentando acessar rota pública - Redirecionando para /comunidade");
+        router.push('/comunidade');
+      }
+    }
+  }, [isAuthenticated, isLoading, pathname, router]);
+
   const fetchUserProfile = async (userId: string) => {
-    console.log("🔍 [AuthContext] Buscando perfil do usuário no Supabase:", userId);
+    console.log("🔍 [AuthContext] Buscando perfil do usuário na tabela profiles:", userId);
     
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('id', userId);
 
-      console.log("📊 [Supabase Query] SELECT FROM users WHERE id =", userId);
+      console.log("📊 [Supabase Query] SELECT FROM profiles WHERE id =", userId);
       
       if (error) {
         console.error("❌ [AuthContext] Erro ao buscar perfil:", error.message);
+        setIsLoading(false);
         return;
       }
 
-      if (data) {
+      // Verificar se retornou dados
+      if (data && data.length > 0) {
+        const profileData = data[0]; // Pegar o primeiro registro
+        
         console.log("✅ [AuthContext] Perfil encontrado:", {
-          id: data.id,
-          name: data.name,
-          email: data.email,
-          unit: data.unit
+          id: profileData.id,
+          nome: profileData.nome,
+          email: profileData.email,
+          unidade: profileData.unidade
         });
         
         const userProfile: User = {
-          id: data.id,
-          name: data.name,
-          email: data.email,
-          phone: data.phone || "",
-          unit: data.unit || "",
-          avatar: data.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+          id: profileData.id,
+          name: profileData.nome || "",
+          email: profileData.email || "",
+          phone: profileData.celular || "",
+          unit: profileData.unidade || "",
+          avatar: profileData.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+          themeMode: profileData.theme_mode || "light",
         };
 
         setUser(userProfile);
         setIsAuthenticated(true);
+        setIsLoading(false);
         document.cookie = "fitstream_auth=true; path=/; max-age=31536000";
         console.log("🍪 [AuthContext] Cookie de autenticação definido");
+      } else {
+        console.log("⚠️ [AuthContext] Nenhum perfil encontrado para o usuário:", userId);
+        setIsLoading(false);
       }
     } catch (err) {
       console.error("❌ [AuthContext] Erro inesperado ao buscar perfil:", err);
+      setIsLoading(false);
     }
   };
 
@@ -209,7 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signup = async (data: SignupData) => {
+  const signup = async (data: SignupData): Promise<{ success: boolean; message: string }> => {
     console.log("📝 [AuthContext] Iniciando cadastro com Supabase Auth");
     console.log("📧 [AuthContext] Dados do cadastro:", {
       name: data.name,
@@ -219,11 +269,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     try {
-      // 1. Criar usuário no Supabase Auth
+      // Passo 1: Criar usuário no Supabase Auth
+      console.log("🔐 [AuthContext] Passo 1: Criando usuário no Supabase Auth");
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             name: data.name,
             phone: data.phone,
@@ -236,12 +288,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (authError) {
         console.error("❌ [AuthContext] Erro ao criar usuário no Auth:", authError.message);
-        throw authError;
+        return {
+          success: false,
+          message: authError.message === "User already registered" 
+            ? "Este e-mail já está cadastrado" 
+            : "Erro ao criar conta. Tente novamente."
+        };
       }
 
       if (!authData.user) {
         console.error("❌ [AuthContext] Usuário não foi criado");
-        throw new Error("Falha ao criar usuário");
+        return {
+          success: false,
+          message: "Falha ao criar usuário. Tente novamente."
+        };
       }
 
       console.log("✅ [AuthContext] Usuário criado no Supabase Auth:", {
@@ -249,61 +309,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: authData.user.email
       });
 
-      // 2. Salvar dados completos na tabela users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: authData.user.id,
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            unit: data.unit,
-            avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
-          }
-        ])
-        .select()
-        .single();
-
-      console.log("📊 [Supabase Query] INSERT INTO users");
-      console.log("📝 [Supabase Query] Dados inseridos:", {
-        id: authData.user.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        unit: data.unit
-      });
+      // Passo 2: Tentar criar registro na tabela profiles
+      // Usar apenas os campos essenciais que sabemos que existem
+      console.log("💾 [AuthContext] Passo 2: Tentando criar registro na tabela profiles");
       
-      if (userError) {
-        console.error("❌ [AuthContext] Erro ao salvar perfil na tabela users:", userError.message);
-        // Continuar mesmo com erro, pois o usuário foi criado no Auth
-      } else {
-        console.log("✅ [AuthContext] Perfil salvo na tabela users:", {
-          id: userData.id,
-          name: userData.name,
-          email: userData.email
-        });
+      try {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([{
+            id: authData.user.id,
+            nome: data.name,
+            email: data.email,
+            celular: data.phone,
+            unidade: data.unit
+          }]);
+
+        if (profileError) {
+          console.error("⚠️ [AuthContext] Erro ao criar perfil (não crítico):", profileError.message);
+          // NÃO retornar erro - o usuário foi criado no Auth, isso é o mais importante
+          console.log("✅ [AuthContext] Continuando - usuário criado no Auth com sucesso");
+        } else {
+          console.log("✅ [AuthContext] Perfil criado com sucesso na tabela profiles");
+        }
+      } catch (profileErr) {
+        console.error("⚠️ [AuthContext] Exceção ao criar perfil (não crítico):", profileErr);
+        // Continuar mesmo com erro no perfil
       }
 
-      // 3. Configurar estado do usuário
-      const newUser: User = {
-        id: authData.user.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        unit: data.unit,
-        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+      // Retornar sucesso - usuário foi criado no Auth
+      console.log("✅ [AuthContext] Cadastro concluído - aguardando confirmação de email");
+      return {
+        success: true,
+        message: "Cadastro realizado com sucesso! Verifique seu e-mail para confirmar sua conta."
       };
-
-      setUser(newUser);
-      setIsAuthenticated(true);
-      document.cookie = "fitstream_auth=true; path=/; max-age=31536000";
-      console.log("🍪 [AuthContext] Cookie de autenticação definido");
-      console.log("🚀 [AuthContext] Redirecionando para /comunidade");
-      router.push("/comunidade");
     } catch (err) {
       console.error("❌ [AuthContext] Erro inesperado no cadastro:", err);
-      throw err;
+      return {
+        success: false,
+        message: "Erro inesperado ao criar conta. Tente novamente."
+      };
     }
   };
 
@@ -343,29 +387,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { data: updatedData, error } = await supabase
-        .from('users')
-        .update(data)
-        .eq('id', user.id)
-        .select()
-        .single();
+      // Mapear campos do User para campos da tabela profiles
+      const profileData: any = {};
+      if (data.name !== undefined) profileData.nome = data.name;
+      if (data.email !== undefined) profileData.email = data.email;
+      if (data.phone !== undefined) profileData.celular = data.phone;
+      if (data.unit !== undefined) profileData.unidade = data.unit;
+      if (data.avatar !== undefined) profileData.avatar = data.avatar;
+      if (data.themeMode !== undefined) profileData.theme_mode = data.themeMode;
 
-      console.log("📊 [Supabase Query] UPDATE users WHERE id =", user.id);
-      console.log("📝 [Supabase Query] Dados atualizados:", data);
+      const { data: updatedData, error } = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', user.id)
+        .select();
+
+      console.log("📊 [Supabase Query] UPDATE profiles WHERE id =", user.id);
+      console.log("📝 [Supabase Query] Dados atualizados:", profileData);
       
       if (error) {
         console.error("❌ [AuthContext] Erro ao atualizar usuário:", error.message);
         throw error;
       }
 
-      if (updatedData) {
+      if (updatedData && updatedData.length > 0) {
+        const updated = updatedData[0];
         console.log("✅ [AuthContext] Usuário atualizado com sucesso:", {
-          id: updatedData.id,
-          name: updatedData.name,
-          email: updatedData.email
+          id: updated.id,
+          nome: updated.nome,
+          email: updated.email
         });
         
-        const updatedUser = { ...user, ...updatedData };
+        // Mapear de volta para o formato User
+        const updatedUser: User = {
+          ...user,
+          name: updated.nome || user.name,
+          email: updated.email || user.email,
+          phone: updated.celular || user.phone,
+          unit: updated.unidade || user.unit,
+          avatar: updated.avatar || user.avatar,
+          themeMode: updated.theme_mode || user.themeMode,
+        };
+        
         setUser(updatedUser);
       }
     } catch (err) {
@@ -377,7 +440,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{ 
       user, 
-      isAuthenticated, 
+      isAuthenticated,
+      isLoading,
       login, 
       loginWithGoogle,
       loginWithApple,

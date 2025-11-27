@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean": "rm -rf .next && echo 'Cache limpo! Execute npm run dev para reiniciar.'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
