@@ -6,7 +6,7 @@ import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Users, Target,
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import ProfileMenu from "@/components/ProfileMenu";
-import { getPosts, createPost, likePost, unlikePost, deletePost, Post } from "@/lib/posts";
+import { getPosts, createPost, likePost, unlikePost, deletePost, Post, getPostComments, addComment, deleteComment, PostComment } from "@/lib/posts";
 
 interface PostDisplay {
   id: string;
@@ -16,6 +16,7 @@ interface PostDisplay {
     avatar: string;
     unit: string;
   };
+  user_id?: string;
   timestamp: string;
   image: string;
   imageSecondary?: string;
@@ -46,20 +47,13 @@ export default function ComunidadePage() {
   const [publishing, setPublishing] = useState(false);
   const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [commentsModalOpen, setCommentsModalOpen] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<PostDisplay | null>(null);
+  const [comments, setComments] = useState<PostComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [addingComment, setAddingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
   useEffect(() => {
     console.log("🔍 [Comunidade] Verificando autenticação. isAuthenticated:", isAuthenticated);
@@ -85,65 +79,12 @@ export default function ComunidadePage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [deleteMenuOpen]);
 
-  // Fechar menu de delete ao clicar fora
+  // Carregar comentários quando modal abre
   useEffect(() => {
-    const handleClickOutside = () => {
-      if (deleteMenuOpen) {
-        setDeleteMenuOpen(null);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [deleteMenuOpen]);
-
-  // Fechar menu de delete ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (deleteMenuOpen) {
-        setDeleteMenuOpen(null);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [deleteMenuOpen]);
-
-  // Fechar menu de delete ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (deleteMenuOpen) {
-        setDeleteMenuOpen(null);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [deleteMenuOpen]);
-
-  // Fechar menu de delete ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (deleteMenuOpen) {
-        setDeleteMenuOpen(null);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [deleteMenuOpen]);
-
-  // Fechar menu de delete ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (deleteMenuOpen) {
-        setDeleteMenuOpen(null);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [deleteMenuOpen]);
+    if (commentsModalOpen && selectedPostForComments) {
+      loadComments(selectedPostForComments.id);
+    }
+  }, [commentsModalOpen, selectedPostForComments]);
 
   const loadPosts = async () => {
     try {
@@ -155,6 +96,7 @@ export default function ComunidadePage() {
       const formattedPosts: PostDisplay[] = data.map((post: Post) => ({
         id: post.id,
         type: post.type,
+        user_id: post.user_id,
         user: {
           name: post.user?.user_metadata?.name || "Usuário",
           avatar: post.user?.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
@@ -181,6 +123,20 @@ export default function ComunidadePage() {
       console.error("❌ [Comunidade] Erro ao carregar posts:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadComments = async (postId: string) => {
+    try {
+      setLoadingComments(true);
+      console.log("💬 [Comunidade] Carregando comentários do post:", postId);
+      const data = await getPostComments(postId);
+      setComments(data);
+      console.log("✅ [Comunidade] Comentários carregados:", data.length);
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao carregar comentários:", error);
+    } finally {
+      setLoadingComments(false);
     }
   };
 
@@ -246,7 +202,6 @@ export default function ComunidadePage() {
         caption: newPostCaption,
         type: mediaType === "video" ? "momento" : "checkin",
         image_url: selectedMedia || undefined,
-        is_video: mediaType === "video",
       });
 
       console.log("✅ [Comunidade] Post publicado com sucesso!");
@@ -306,16 +261,86 @@ export default function ComunidadePage() {
     }
   };
 
-  const handleComment = (postId: string) => {
-    console.log("💬 [Comunidade] Tentando comentar no post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando comentário");
-      alert("Você precisa estar logado para comentar");
-      return;
-    }
+  const handleOpenCommentsModal = (post: PostDisplay) => {
+    console.log("💬 [Comunidade] Abrindo modal de comentários para post:", post.id);
+    setSelectedPostForComments(post);
+    setCommentsModalOpen(true);
+  };
 
-    console.log("🚀 [Comunidade] Redirecionando para página do post:", `/comunidade/post/${postId}`);
-    router.push(`/comunidade/post/${postId}`);
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !selectedPostForComments) return;
+
+    try {
+      setAddingComment(true);
+      console.log("💬 [Comunidade] Adicionando comentário...");
+      
+      await addComment(selectedPostForComments.id, newComment);
+      
+      console.log("✅ [Comunidade] Comentário adicionado com sucesso!");
+      
+      // Limpar input
+      setNewComment("");
+      
+      // Recarregar comentários
+      await loadComments(selectedPostForComments.id);
+      
+      // Atualizar contagem de comentários no post
+      setPosts(posts.map(p => {
+        if (p.id === selectedPostForComments.id) {
+          return { ...p, comments: p.comments + 1 };
+        }
+        return p;
+      }));
+      
+      // Atualizar post selecionado
+      setSelectedPostForComments({
+        ...selectedPostForComments,
+        comments: selectedPostForComments.comments + 1
+      });
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao adicionar comentário:", error);
+      alert("Erro ao adicionar comentário. Tente novamente.");
+    } finally {
+      setAddingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!selectedPostForComments) return;
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir este comentário?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingCommentId(commentId);
+      console.log("🗑️ [Comunidade] Deletando comentário...");
+      
+      await deleteComment(commentId);
+      
+      console.log("✅ [Comunidade] Comentário deletado com sucesso!");
+      
+      // Recarregar comentários
+      await loadComments(selectedPostForComments.id);
+      
+      // Atualizar contagem de comentários no post
+      setPosts(posts.map(p => {
+        if (p.id === selectedPostForComments.id) {
+          return { ...p, comments: Math.max(0, p.comments - 1) };
+        }
+        return p;
+      }));
+      
+      // Atualizar post selecionado
+      setSelectedPostForComments({
+        ...selectedPostForComments,
+        comments: Math.max(0, selectedPostForComments.comments - 1)
+      });
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar comentário:", error);
+      alert("Erro ao deletar comentário. Tente novamente.");
+    } finally {
+      setDeletingCommentId(null);
+    }
   };
 
   const handleShareClick = (e: React.MouseEvent, postId: string) => {
@@ -357,237 +382,6 @@ export default function ComunidadePage() {
       setShowCopyFeedback(false);
       setShareSheetOpen(false);
     }, 2000);
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
-      alert("Você precisa estar logado para deletar");
-      return;
-    }
-
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
-    if (!confirmDelete) return;
-
-    try {
-      setDeletingPostId(postId);
-      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
-      
-      await deletePost(postId);
-      
-      console.log("✅ [Comunidade] Post deletado com sucesso!");
-      
-      // Fechar menu
-      setDeleteMenuOpen(null);
-      
-      // Recarregar posts
-      await loadPosts();
-      console.log("🔄 [Comunidade] Feed atualizado");
-    } catch (error) {
-      console.error("❌ [Comunidade] Erro ao deletar post:", error);
-      alert("Erro ao deletar post. Tente novamente.");
-    } finally {
-      setDeletingPostId(null);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
-      alert("Você precisa estar logado para deletar");
-      return;
-    }
-
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
-    if (!confirmDelete) return;
-
-    try {
-      setDeletingPostId(postId);
-      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
-      
-      await deletePost(postId);
-      
-      console.log("✅ [Comunidade] Post deletado com sucesso!");
-      
-      // Fechar menu
-      setDeleteMenuOpen(null);
-      
-      // Recarregar posts
-      await loadPosts();
-      console.log("🔄 [Comunidade] Feed atualizado");
-    } catch (error) {
-      console.error("❌ [Comunidade] Erro ao deletar post:", error);
-      alert("Erro ao deletar post. Tente novamente.");
-    } finally {
-      setDeletingPostId(null);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
-      alert("Você precisa estar logado para deletar");
-      return;
-    }
-
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
-    if (!confirmDelete) return;
-
-    try {
-      setDeletingPostId(postId);
-      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
-      
-      await deletePost(postId);
-      
-      console.log("✅ [Comunidade] Post deletado com sucesso!");
-      
-      // Fechar menu
-      setDeleteMenuOpen(null);
-      
-      // Recarregar posts
-      await loadPosts();
-      console.log("🔄 [Comunidade] Feed atualizado");
-    } catch (error) {
-      console.error("❌ [Comunidade] Erro ao deletar post:", error);
-      alert("Erro ao deletar post. Tente novamente.");
-    } finally {
-      setDeletingPostId(null);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
-      alert("Você precisa estar logado para deletar");
-      return;
-    }
-
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
-    if (!confirmDelete) return;
-
-    try {
-      setDeletingPostId(postId);
-      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
-      
-      await deletePost(postId);
-      
-      console.log("✅ [Comunidade] Post deletado com sucesso!");
-      
-      // Fechar menu
-      setDeleteMenuOpen(null);
-      
-      // Recarregar posts
-      await loadPosts();
-      console.log("🔄 [Comunidade] Feed atualizado");
-    } catch (error) {
-      console.error("❌ [Comunidade] Erro ao deletar post:", error);
-      alert("Erro ao deletar post. Tente novamente.");
-    } finally {
-      setDeletingPostId(null);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
-      alert("Você precisa estar logado para deletar");
-      return;
-    }
-
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
-    if (!confirmDelete) return;
-
-    try {
-      setDeletingPostId(postId);
-      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
-      
-      await deletePost(postId);
-      
-      console.log("✅ [Comunidade] Post deletado com sucesso!");
-      
-      // Fechar menu
-      setDeleteMenuOpen(null);
-      
-      // Recarregar posts
-      await loadPosts();
-      console.log("🔄 [Comunidade] Feed atualizado");
-    } catch (error) {
-      console.error("❌ [Comunidade] Erro ao deletar post:", error);
-      alert("Erro ao deletar post. Tente novamente.");
-    } finally {
-      setDeletingPostId(null);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
-      alert("Você precisa estar logado para deletar");
-      return;
-    }
-
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
-    if (!confirmDelete) return;
-
-    try {
-      setDeletingPostId(postId);
-      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
-      
-      await deletePost(postId);
-      
-      console.log("✅ [Comunidade] Post deletado com sucesso!");
-      
-      // Fechar menu
-      setDeleteMenuOpen(null);
-      
-      // Recarregar posts
-      await loadPosts();
-      console.log("🔄 [Comunidade] Feed atualizado");
-    } catch (error) {
-      console.error("❌ [Comunidade] Erro ao deletar post:", error);
-      alert("Erro ao deletar post. Tente novamente.");
-    } finally {
-      setDeletingPostId(null);
-    }
-  };
-
-  const handleDeletePost = async (postId: string) => {
-    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
-    if (!isAuthenticated) {
-      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
-      alert("Você precisa estar logado para deletar");
-      return;
-    }
-
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
-    if (!confirmDelete) return;
-
-    try {
-      setDeletingPostId(postId);
-      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
-      
-      await deletePost(postId);
-      
-      console.log("✅ [Comunidade] Post deletado com sucesso!");
-      
-      // Fechar menu
-      setDeleteMenuOpen(null);
-      
-      // Recarregar posts
-      await loadPosts();
-      console.log("🔄 [Comunidade] Feed atualizado");
-    } catch (error) {
-      console.error("❌ [Comunidade] Erro ao deletar post:", error);
-      alert("Erro ao deletar post. Tente novamente.");
-    } finally {
-      setDeletingPostId(null);
-    }
   };
 
   const handleDeletePost = async (postId: string) => {
@@ -814,7 +608,7 @@ export default function ComunidadePage() {
                   posts.map((post) => (
                     <div
                       key={post.id}
-                      className={`rounded-xl overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-[1.01] ${
+                      className={`rounded-xl overflow-hidden shadow-lg ${
                         post.type === "aviso" 
                           ? theme === "light"
                             ? "bg-gradient-to-br from-red-50 to-white"
@@ -823,7 +617,6 @@ export default function ComunidadePage() {
                             ? "bg-white"
                             : "bg-[#1A1A1A]"
                       }`}
-                      onClick={() => router.push(`/comunidade/post/${post.id}`)}
                     >
                       {/* Topo do Card */}
                       <div className="p-4 flex items-center gap-3">
@@ -1006,7 +799,7 @@ export default function ComunidadePage() {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleComment(post.id);
+                              handleOpenCommentsModal(post);
                             }}
                             className={`flex items-center gap-2 transition ${
                               theme === "light"
@@ -1032,7 +825,7 @@ export default function ComunidadePage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/comunidade/post/${post.id}`);
+                            handleOpenCommentsModal(post);
                           }}
                           className={`text-sm transition ${
                             theme === "light"
@@ -1171,6 +964,175 @@ export default function ComunidadePage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Comentários */}
+      {commentsModalOpen && selectedPostForComments && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={() => setCommentsModalOpen(false)}
+        >
+          <div 
+            className={`w-full max-w-2xl max-h-[80vh] rounded-3xl overflow-hidden ${
+              theme === "light" ? "bg-white" : "bg-[#1A1A1A]"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className={`flex justify-between items-center p-4 border-b ${
+              theme === "light" ? "border-gray-200" : "border-gray-800"
+            }`}>
+              <h3 className={`text-lg font-bold ${
+                theme === "light" ? "text-gray-900" : "text-white"
+              }`}>
+                Comentários
+              </h3>
+              <button
+                onClick={() => setCommentsModalOpen(false)}
+                className={`p-1 rounded-full transition ${
+                  theme === "light" 
+                    ? "hover:bg-gray-100 text-gray-600" 
+                    : "hover:bg-gray-800 text-gray-400"
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="overflow-y-auto max-h-[60vh] p-4">
+              {/* Post Original */}
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <img
+                    src={selectedPostForComments.user.avatar}
+                    alt={selectedPostForComments.user.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <div>
+                    <h4 className={`font-semibold ${
+                      theme === "light" ? "text-gray-900" : "text-white"
+                    }`}>
+                      {selectedPostForComments.user.name}
+                    </h4>
+                    <p className={`text-xs ${
+                      theme === "light" ? "text-gray-600" : "text-gray-400"
+                    }`}>
+                      {selectedPostForComments.user.unit} • {selectedPostForComments.timestamp}
+                    </p>
+                  </div>
+                </div>
+                <p className={`text-sm ${
+                  theme === "light" ? "text-gray-900" : "text-white"
+                }`}>
+                  {selectedPostForComments.caption}
+                </p>
+              </div>
+
+              {/* Lista de Comentários */}
+              <div className={`border-t pt-4 ${
+                theme === "light" ? "border-gray-200" : "border-gray-800"
+              }`}>
+                {loadingComments ? (
+                  <div className="text-center py-8">
+                    <div className={`inline-block animate-spin rounded-full h-8 w-8 border-4 border-solid border-current border-r-transparent ${
+                      theme === "light" ? "text-gray-900" : "text-white"
+                    }`}></div>
+                  </div>
+                ) : comments.length === 0 ? (
+                  <p className={`text-center py-8 ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}>
+                    Nenhum comentário ainda. Seja o primeiro a comentar!
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3">
+                        <img
+                          src={comment.user?.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop"}
+                          alt={comment.user?.user_metadata?.name || "Usuário"}
+                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h5 className={`font-semibold text-sm ${
+                                theme === "light" ? "text-gray-900" : "text-white"
+                              }`}>
+                                {comment.user?.user_metadata?.name || "Usuário"}
+                              </h5>
+                              <p className={`text-xs ${
+                                theme === "light" ? "text-gray-600" : "text-gray-400"
+                              }`}>
+                                {comment.user?.user_metadata?.unit || "Simplifit"} • {formatTimestamp(comment.created_at)}
+                              </p>
+                            </div>
+                            {user?.id === comment.user_id && (
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                disabled={deletingCommentId === comment.id}
+                                className={`p-1 rounded-full transition ${
+                                  theme === "light"
+                                    ? "hover:bg-gray-100 text-gray-500"
+                                    : "hover:bg-gray-800 text-gray-400"
+                                } disabled:opacity-50`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                          <p className={`text-sm mt-1 ${
+                            theme === "light" ? "text-gray-900" : "text-white"
+                          }`}>
+                            {comment.content}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Input de Comentário */}
+            <div className={`p-4 border-t ${
+              theme === "light" ? "border-gray-200" : "border-gray-800"
+            }`}>
+              <div className="flex gap-3">
+                <img
+                  src={user?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop"}
+                  alt="Seu avatar"
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                />
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !addingComment && newComment.trim()) {
+                      handleAddComment();
+                    }
+                  }}
+                  placeholder="Adicione um comentário..."
+                  disabled={addingComment}
+                  className={`flex-1 bg-transparent border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#E50914] ${
+                    theme === "light" 
+                      ? "border-gray-300 text-gray-900 placeholder-gray-400" 
+                      : "border-gray-700 text-white placeholder-gray-500"
+                  } disabled:opacity-50`}
+                />
+                <button 
+                  onClick={handleAddComment}
+                  disabled={!newComment.trim() || addingComment}
+                  className="bg-[#E50914] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#C4070F] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {addingComment ? "..." : "Enviar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Sheet de Compartilhamento */}
       {shareSheetOpen && (
