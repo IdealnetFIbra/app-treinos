@@ -81,6 +81,33 @@ export async function createPost(data: {
   return post;
 }
 
+// Deletar post
+export async function deletePost(postId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('Usuário não autenticado');
+  }
+
+  // Verificar se o post pertence ao usuário
+  const { data: post } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', postId)
+    .single();
+
+  if (!post || post.user_id !== user.id) {
+    throw new Error('Você não tem permissão para deletar este post');
+  }
+
+  const { error } = await supabase
+    .from('posts')
+    .delete()
+    .eq('id', postId);
+
+  if (error) throw error;
+}
+
 // Buscar posts com contagem de likes e comentários
 export async function getPosts() {
   const { data: { user } } = await supabase.auth.getUser();

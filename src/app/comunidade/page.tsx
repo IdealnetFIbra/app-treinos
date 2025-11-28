@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Users, Target, Dumbbell, X, ArrowLeft } from "lucide-react";
+import { Heart, MessageCircle, Share2, Image as ImageIcon, Video, Users, Target, Dumbbell, X, ArrowLeft, MoreVertical, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import ProfileMenu from "@/components/ProfileMenu";
-import { getPosts, createPost, likePost, unlikePost, Post } from "@/lib/posts";
+import { getPosts, createPost, likePost, unlikePost, deletePost, Post } from "@/lib/posts";
 
 interface PostDisplay {
   id: string;
@@ -44,6 +44,22 @@ export default function ComunidadePage() {
   const [showCopyFeedback, setShowCopyFeedback] = useState(false);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   useEffect(() => {
     console.log("🔍 [Comunidade] Verificando autenticação. isAuthenticated:", isAuthenticated);
@@ -56,6 +72,78 @@ export default function ComunidadePage() {
       loadPosts();
     }
   }, [isAuthenticated, router, user]);
+
+  // Fechar menu de delete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (deleteMenuOpen) {
+        setDeleteMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [deleteMenuOpen]);
+
+  // Fechar menu de delete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (deleteMenuOpen) {
+        setDeleteMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [deleteMenuOpen]);
+
+  // Fechar menu de delete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (deleteMenuOpen) {
+        setDeleteMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [deleteMenuOpen]);
+
+  // Fechar menu de delete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (deleteMenuOpen) {
+        setDeleteMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [deleteMenuOpen]);
+
+  // Fechar menu de delete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (deleteMenuOpen) {
+        setDeleteMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [deleteMenuOpen]);
+
+  // Fechar menu de delete ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (deleteMenuOpen) {
+        setDeleteMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [deleteMenuOpen]);
 
   const loadPosts = async () => {
     try {
@@ -269,6 +357,270 @@ export default function ComunidadePage() {
       setShowCopyFeedback(false);
       setShareSheetOpen(false);
     }, 2000);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    console.log("🗑️ [Comunidade] Tentando deletar post:", postId);
+    if (!isAuthenticated) {
+      console.log("❌ [Comunidade] Usuário não autenticado. Bloqueando exclusão");
+      alert("Você precisa estar logado para deletar");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta publicação?");
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingPostId(postId);
+      console.log("🗑️ [Comunidade] Deletando post do Supabase...");
+      
+      await deletePost(postId);
+      
+      console.log("✅ [Comunidade] Post deletado com sucesso!");
+      
+      // Fechar menu
+      setDeleteMenuOpen(null);
+      
+      // Recarregar posts
+      await loadPosts();
+      console.log("🔄 [Comunidade] Feed atualizado");
+    } catch (error) {
+      console.error("❌ [Comunidade] Erro ao deletar post:", error);
+      alert("Erro ao deletar post. Tente novamente.");
+    } finally {
+      setDeletingPostId(null);
+    }
   };
 
   if (!isAuthenticated) {
@@ -497,6 +849,53 @@ export default function ComunidadePage() {
                         }`}>
                           {post.timestamp}
                         </span>
+                        
+                        {/* Menu de 3 pontinhos - apenas se for post do usuário */}
+                        {user?.id === post.user_id && (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteMenuOpen(deleteMenuOpen === post.id ? null : post.id);
+                              }}
+                              className={`p-2 rounded-full transition ${
+                                theme === "light" 
+                                  ? "hover:bg-gray-100 text-gray-600" 
+                                  : "hover:bg-gray-800 text-gray-400"
+                              }`}
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                            
+                            {/* Menu dropdown */}
+                            {deleteMenuOpen === post.id && (
+                              <div 
+                                className={`absolute right-0 top-full mt-1 rounded-lg shadow-lg z-10 overflow-hidden ${
+                                  theme === "light" ? "bg-white" : "bg-[#1A1A1A]"
+                                }`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeletePost(post.id);
+                                  }}
+                                  disabled={deletingPostId === post.id}
+                                  className={`flex items-center gap-2 px-4 py-3 w-full text-left transition ${
+                                    theme === "light"
+                                      ? "hover:bg-gray-50 text-red-600"
+                                      : "hover:bg-black text-red-500"
+                                  } disabled:opacity-50`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  <span className="text-sm font-medium whitespace-nowrap">
+                                    {deletingPostId === post.id ? "Excluindo..." : "Excluir publicação"}
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Imagem(ns) ou Vídeo */}
